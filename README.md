@@ -8,6 +8,8 @@ GPUs.
 Built with Next.js 16 (static export), React Three Fiber and three.js. Everything is drawn in code: there are no 3D
 models, textures or audio files.
 
+Live at **https://mnhatdaous.github.io/portfolio/**
+
 ## Run it
 
 ```bash
@@ -15,6 +17,14 @@ npm install
 npm run dev          # http://localhost:3000
 npm run build        # static site in out/, ready for Cloudflare Pages, Vercel, GitHub Pages…
 ```
+
+## Deploy
+
+Every push to `main` builds the site and publishes it to GitHub Pages
+([`.github/workflows/pages.yml`](.github/workflows/pages.yml)). Pages serves it under `/portfolio/`, so the workflow
+builds with `PAGES_BASE_PATH=/portfolio`, which becomes Next's `basePath`. The page's own links are relative
+(`./?lofi=1`), so they need no prefix. To try the Pages build locally, run `PAGES_BASE_PATH=/portfolio npm run build`
+and serve `out/` at `/portfolio/`.
 
 ## Change the content
 

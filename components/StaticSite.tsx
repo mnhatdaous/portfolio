@@ -6,14 +6,14 @@ export default function StaticSite() {
   return (
     <div id="lofi">
       <header className="lf-head">
-        <a className="lf-name" href="/">{profile.name}</a>
+        <a className="lf-name" href="./">{profile.name}</a>
         <nav aria-label="Site">
           <a href="#about">About</a>
           <a href="#work">Work</a>
           <a href="#stack">Stack</a>
           <a href="#online">Online</a>
         </nav>
-        <a className="lf-hifi" href="/?room=1" title="The 3D room">HI-FI</a>
+        <a className="lf-hifi" href="./?room=1" title="The 3D room">HI-FI</a>
       </header>
 
       <main className="lf-main">
@@ -28,7 +28,7 @@ export default function StaticSite() {
             This is the plain version. The full site is a small 3D apartment in Saigon, but your browser draws WebGL
             without a graphics card, which would make it slow.
           </p>
-          <p><a href="/?room=1">Try the 3D room anyway</a></p>
+          <p><a href="./?room=1">Try the 3D room anyway</a></p>
         </div>
 
         <section id="about" className="lf-sec">
