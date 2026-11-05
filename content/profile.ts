@@ -238,10 +238,10 @@ export const skillGroups: SkillGroup[] = [
   },
 ];
 
-// TODO: add your GitHub and LinkedIn URLs. Links without an href are left out everywhere.
+// TODO: add your LinkedIn URL. Links without an href are left out everywhere.
 export const links: Link[] = [
   { label: "Email", value: "m.nhatdao.us@gmail.com", href: "mailto:m.nhatdao.us@gmail.com" },
-  { label: "GitHub", value: "", href: "" },
+  { label: "GitHub", value: "github.com/mnhatdaous", href: "https://github.com/mnhatdaous" },
   { label: "LinkedIn", value: "", href: "" },
 ];
 
