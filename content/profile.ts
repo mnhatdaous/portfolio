@@ -42,11 +42,11 @@ export type Link = { label: string; value: string; href: string };
 export const profile = {
   name: "Dao Minh Nhat",
   short: "Nhat",
-  role: "Senior Software Engineer",
+  role: "Forward Deployed Engineer",
   location: "Ho Chi Minh City, Vietnam",
   timeZone: "Asia/Ho_Chi_Minh",
   hello: "Hi, I'm Nhat.",
-  dek: "Senior software engineer in Saigon. Founding engineer at AusyncLab, where we build AI voices for the web: text-to-speech, voice cloning and lip-sync.",
+  dek: "Forward deployed engineer in Saigon. Founding engineer at AusyncLab, where we build AI voices for the web: text-to-speech, voice cloning and lip-sync.",
   about: [
     "Software engineer with 6+ years of experience building web applications, backend services and cloud-based systems.",
     "I work across frontend architecture, backend development, payment integrations, database migrations and cloud infrastructure, mostly in TypeScript, Python, Go and Rust.",
