@@ -238,11 +238,11 @@ export const skillGroups: SkillGroup[] = [
   },
 ];
 
-// TODO: add your LinkedIn URL. Links without an href are left out everywhere.
+// Links without an href are left out everywhere.
 export const links: Link[] = [
   { label: "Email", value: "m.nhatdao.us@gmail.com", href: "mailto:m.nhatdao.us@gmail.com" },
   { label: "GitHub", value: "github.com/mnhatdaous", href: "https://github.com/mnhatdaous" },
-  { label: "LinkedIn", value: "", href: "" },
+  { label: "LinkedIn", value: "linkedin.com/in/mnhatdaous", href: "https://www.linkedin.com/in/mnhatdaous/" },
 ];
 
 export const liveLinks = () => links.filter((l) => l.href);

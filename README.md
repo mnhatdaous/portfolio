@@ -32,7 +32,6 @@ Everything the site says is in [`content/profile.ts`](content/profile.ts): the j
 builds (index cards), the skills (one book each) and the links. Both the room and the plain page read from it.
 
 Still to do:
-- add your LinkedIn URL to `links` (links without a URL are hidden)
 - if you want your name with diacritics on the site, change `profile.name`
 
 ## How the 3D movement works
