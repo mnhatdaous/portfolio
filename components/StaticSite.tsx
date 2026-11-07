@@ -25,7 +25,7 @@ export default function StaticSite() {
 
         <div className="lf-soft" role="note">
           <p>
-            This is the plain version. The full site is a small 3D apartment in Saigon, but your browser draws WebGL
+            This is the plain version. The full site is a sunny 3D study above a lake, but your browser draws WebGL
             without a graphics card, which would make it slow.
           </p>
           <p><a href="./?room=1">Try the 3D room anyway</a></p>

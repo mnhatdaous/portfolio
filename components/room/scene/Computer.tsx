@@ -6,7 +6,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { jobs, profile } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
-import { canvasTexture, FONT, fontsReady, roundRect } from "../lib/textures";
+import { canvasTexture, FONT, fontsReady, rng, roundRect } from "../lib/textures";
 import { useRoom } from "../store";
 import { DESK_Y } from "./Desk";
 
@@ -57,44 +57,53 @@ function termAt(t: number) {
   return { lines, typing: false };
 }
 
+/** the wallpaper: the same view, simplified, with the time over it */
 function drawLock(ctx: CanvasRenderingContext2D) {
-  const g = ctx.createLinearGradient(0, 0, 0, SH);
-  g.addColorStop(0, "#1d1533");
-  g.addColorStop(1, "#0b1a28");
+  const horizon = SH * 0.66;
+  const g = ctx.createLinearGradient(0, 0, 0, horizon);
+  g.addColorStop(0, "#6f9fd2");
+  g.addColorStop(1, "#d8e5ef");
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, SW, SH);
-  for (const [x, y, r, c] of [[160, 90, 420, "rgba(255,80,140,.28)"], [880, 560, 460, "rgba(60,220,210,.22)"]] as const) {
-    const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
-    rg.addColorStop(0, c);
-    rg.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = rg;
-    ctx.fillRect(0, 0, SW, SH);
+  ctx.fillRect(0, 0, SW, horizon);
+  const lake = ctx.createLinearGradient(0, horizon, 0, SH);
+  lake.addColorStop(0, "#b5cbdd");
+  lake.addColorStop(1, "#7d9fbe");
+  ctx.fillStyle = lake;
+  ctx.fillRect(0, horizon, SW, SH - horizon);
+  // a snowy ridge: rock, then snow wherever it rises above a line
+  const r = rng(5), ridge: [number, number][] = [];
+  for (let x = 0, y = horizon - 60; x <= SW + 40; x += 28) {
+    y = Math.max(horizon - 190, Math.min(horizon - 20, y + (r() - 0.5) * 70));
+    ridge.push([x, y]);
   }
-  ctx.strokeStyle = "rgba(255,255,255,.05)";
-  ctx.lineWidth = 1.5;
-  for (let i = 0; i < 70; i++) {
-    const x = (i * 97) % SW, y = (i * 53) % SH;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 10, y + 46); ctx.stroke();
-  }
+  const mountains = () => { ctx.beginPath(); ctx.moveTo(0, horizon); ridge.forEach(([x, y]) => ctx.lineTo(x, y)); ctx.lineTo(SW, horizon); ctx.closePath(); };
+  ctx.fillStyle = "#8494b0";
+  mountains();
+  ctx.fill();
+  ctx.save();
+  mountains();
+  ctx.clip();
+  ctx.fillStyle = "#f1f4f8";
+  ctx.fillRect(0, 0, SW, horizon - 110);
+  ctx.restore();
+  ctx.fillStyle = "rgba(60,90,80,.55)";
+  ctx.fillRect(0, horizon - 6, SW, 8);
+
   ctx.textAlign = "center";
-  ctx.fillStyle = "#f4eee2";
+  ctx.shadowColor = "rgba(30,50,80,.35)";
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = "#ffffff";
   ctx.font = `800 168px ${FONT.display()}`;
-  ctx.fillText(saigonTime(), SW / 2, 262);
+  ctx.fillText(saigonTime(), SW / 2, 230);
   ctx.font = `500 34px ${FONT.display()}`;
-  ctx.fillStyle = "rgba(244,238,226,.85)";
   const date = saigonDate();
-  ctx.fillText(date.charAt(0).toUpperCase() + date.slice(1), SW / 2, 318);
-  // the account
-  ctx.fillStyle = "rgba(255,255,255,.14)";
-  ctx.beginPath(); ctx.arc(SW / 2, 452, 44, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#f4eee2";
-  ctx.font = `700 40px ${FONT.display()}`;
-  ctx.fillText(profile.short.charAt(0), SW / 2, 466);
+  ctx.fillText(date.charAt(0).toUpperCase() + date.slice(1), SW / 2, 286);
   ctx.font = `700 30px ${FONT.display()}`;
-  ctx.fillText(profile.name, SW / 2, 538);
+  ctx.fillText(profile.name, SW / 2, 548);
   ctx.font = `400 21px ${FONT.mono()}`;
-  ctx.fillStyle = "rgba(244,238,226,.6)";
-  ctx.fillText("click to open · about", SW / 2, 586);
+  ctx.fillStyle = "rgba(255,255,255,.85)";
+  ctx.fillText("click to open · about", SW / 2, 592);
+  ctx.shadowBlur = 0;
   ctx.textAlign = "left";
 }
 
@@ -130,34 +139,39 @@ function drawTerm(ctx: CanvasRenderingContext2D, t: number, blink: boolean) {
   });
 }
 
-export default function Laptop() {
+export default function Computer() {
   const ref = useRef<THREE.Group>(null);
   useEffect(() => { registerStation("about", ref.current); return () => registerStation("about", null); }, []);
 
   const screen = useMemo(() => canvasTexture(SW, SH), []);
   const m = useMemo(() => {
-    const keys = canvasTexture(512, 220, (ctx, w, h) => {
-      ctx.fillStyle = "#1b1c21"; ctx.fillRect(0, 0, w, h);
-      const rows = [14, 14, 13, 12, 11], kw = 31, gap = 4.6;
-      rows.forEach((n, r) => {
-        const y = 10 + r * 36, x0 = (w - (n * kw + (n - 1) * gap)) / 2;
-        for (let i = 0; i < n; i++) { ctx.fillStyle = "#2c2e36"; roundRect(ctx, x0 + i * (kw + gap), y, kw, 30, 4); ctx.fill(); }
+    const keys = canvasTexture(512, 176, (ctx, w, h) => {
+      ctx.fillStyle = "#c9ccd2";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#f5f5f7";
+      const kw = 31, gap = 4.6;
+      [14, 14, 13, 12].forEach((n, r) => {
+        const y = 8 + r * 33, x0 = (w - (n * kw + (n - 1) * gap)) / 2;
+        for (let i = 0; i < n; i++) { roundRect(ctx, x0 + i * (kw + gap), y, kw, 27, 5); ctx.fill(); }
       });
-      ctx.fillStyle = "#2c2e36"; roundRect(ctx, 150, 190, 212, 24, 4); ctx.fill();
+      const y = 8 + 4 * 33;
+      for (let i = 0; i < 3; i++) { roundRect(ctx, 22 + i * (kw + gap), y, kw, 27, 5); ctx.fill(); roundRect(ctx, w - 22 - kw - i * (kw + gap), y, kw, 27, 5); ctx.fill(); }
+      roundRect(ctx, 22 + 3 * (kw + gap), y, w - 44 - 6 * (kw + gap) - gap, 27, 5);
+      ctx.fill();
     }).texture;
     const scr = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: true });
-    scr.color.setScalar(1.12);
+    scr.color.setScalar(1.05);
     return {
-      shell: new THREE.MeshStandardMaterial({ color: "#a9aeb8", roughness: 0.32, metalness: 0.65 }),
-      keys: new THREE.MeshStandardMaterial({ map: keys, roughness: 0.6 }),
-      pad: new THREE.MeshStandardMaterial({ color: "#9a9fa9", roughness: 0.25, metalness: 0.5 }),
-      bezel: new THREE.MeshStandardMaterial({ color: "#0c0d10", roughness: 0.3 }),
+      alu: new THREE.MeshStandardMaterial({ color: "#d6d8dc", roughness: 0.32, metalness: 0.6 }),
+      keys: new THREE.MeshStandardMaterial({ map: keys, roughness: 0.55 }),
+      glass: new THREE.MeshStandardMaterial({ color: "#0b0c0f", roughness: 0.12 }),
+      mouse: new THREE.MeshStandardMaterial({ color: "#f3f3f5", roughness: 0.3 }),
       screen: scr,
     };
   }, [screen]);
   const geo = useMemo(() => ({
-    base: new RoundedBoxGeometry(0.31, 0.014, 0.215, 2, 0.005),
-    lid: new RoundedBoxGeometry(0.31, 0.205, 0.007, 2, 0.003),
+    body: new RoundedBoxGeometry(0.64, 0.47, 0.022, 3, 0.008),
+    keyboard: new RoundedBoxGeometry(0.29, 0.009, 0.105, 2, 0.004),
   }), []);
 
   const st = useRef({ mode: "", key: "", openedAt: 0, ready: false });
@@ -182,16 +196,23 @@ export default function Laptop() {
     screen.texture.needsUpdate = true;
   });
 
+  const props = clickable("COMPUTER · ABOUT", () => useRoom.getState().go("about"));
   return (
-    <group ref={ref} position={[0.17, DESK_Y, -0.19]} rotation-y={-0.05} {...clickable("LAPTOP · ABOUT", () => useRoom.getState().go("about"))}>
-      <mesh geometry={geo.base} position={[0, 0.007, 0]} castShadow receiveShadow material={m.shell} />
-      <mesh position={[0, 0.0142, -0.025]} rotation-x={-Math.PI / 2} material={m.keys}><planeGeometry args={[0.272, 0.112]} /></mesh>
-      <mesh position={[0, 0.0142, 0.068]} rotation-x={-Math.PI / 2} material={m.pad}><planeGeometry args={[0.105, 0.062]} /></mesh>
-      <group position={[0, 0.014, -0.104]} rotation-x={-0.27}>
-        <mesh geometry={geo.lid} position={[0, 0.1025, -0.0036]} castShadow material={m.shell} />
-        <mesh position={[0, 0.1025, 0.0001]} material={m.bezel}><planeGeometry args={[0.302, 0.197]} /></mesh>
-        <mesh position={[0, 0.1045, 0.0003]} material={m.screen}><planeGeometry args={[0.284, 0.1775]} /></mesh>
-        <pointLight position={[0, 0.1, 0.16]} color="#a9c1ff" intensity={0.35} distance={1.2} decay={2} />
+    <group>
+      {/* the screen on its stand: what the About page frames */}
+      <group ref={ref} position={[0, DESK_Y, -2.06]} {...props}>
+        <mesh position={[0, 0.0035, -0.01]} castShadow receiveShadow material={m.alu}><boxGeometry args={[0.19, 0.007, 0.16]} /></mesh>
+        <mesh position={[0, 0.13, -0.075]} rotation-x={0.18} castShadow material={m.alu}><boxGeometry args={[0.15, 0.26, 0.012]} /></mesh>
+        <group position={[0, 0.345, -0.03]} rotation-x={-0.04}>
+          <mesh geometry={geo.body} castShadow receiveShadow material={m.alu} />
+          <mesh position={[0, 0.03, 0.0112]} material={m.glass}><planeGeometry args={[0.624, 0.392]} /></mesh>
+          <mesh position={[0, 0.03, 0.0116]} material={m.screen}><planeGeometry args={[0.6, 0.375]} /></mesh>
+        </group>
+      </group>
+      <group {...props}>
+        <mesh geometry={geo.keyboard} position={[-0.02, DESK_Y + 0.0045, -1.81]} castShadow receiveShadow material={m.alu} />
+        <mesh position={[-0.02, DESK_Y + 0.0092, -1.81]} rotation-x={-Math.PI / 2} material={m.keys}><planeGeometry args={[0.278, 0.096]} /></mesh>
+        <mesh position={[0.25, DESK_Y + 0.009, -1.8]} scale={[0.032, 0.012, 0.055]} castShadow material={m.mouse}><sphereGeometry args={[1, 20, 12]} /></mesh>
       </group>
     </group>
   );

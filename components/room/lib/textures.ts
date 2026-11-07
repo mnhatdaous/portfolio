@@ -149,71 +149,59 @@ export function corkTexture() {
   }, { repeat: [1.6, 1.1] }).texture;
 }
 
-/** gạch bông: the patterned cement tiles of old Saigon houses. One tile; the floor repeats it. */
-export function tileTexture(repeat: [number, number]) {
-  return canvasTexture(512, 512, (ctx, S) => {
-    const r = rng(11);
-    const cream = "#e6dac2", terra = "#a84a33", teal = "#2c6763", ink = "#2a2826", mustard = "#c99a3a";
-    ctx.fillStyle = cream;
-    ctx.fillRect(0, 0, S, S);
-    // corners: quarter circles that make full rings where four tiles meet
-    for (const [cx, cy] of [[0, 0], [S, 0], [0, S], [S, S]]) {
-      for (const [rad, col] of [[0.3, teal], [0.24, cream], [0.19, terra], [0.11, cream], [0.06, mustard]] as const) {
-        ctx.fillStyle = col;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rad * S, 0, Math.PI * 2);
-        ctx.fill();
+/** floorboards: six boards of slightly different tone, each cut once, with grain and fine gaps; the floor repeats it */
+export function planksTexture(base = "#cfa673", repeat: [number, number] = [1, 1], seed = 13) {
+  return canvasTexture(1024, 1024, (ctx, w, h) => {
+    const r = rng(seed), n = 6, bw = w / n, tone = new THREE.Color(base);
+    for (let b = 0; b < n; b++) {
+      const x0 = b * bw, cut = h * (0.2 + r() * 0.6);
+      for (const [y0, y1] of [[0, cut], [cut, h]]) {
+        const c = tone.clone().offsetHSL((r() - 0.5) * 0.012, (r() - 0.5) * 0.05, (r() - 0.5) * 0.05);
+        ctx.fillStyle = `#${c.getHexString()}`;
+        ctx.fillRect(x0, y0, bw, y1 - y0);
+        for (let i = 0; i < 24; i++) {
+          const gx = x0 + r() * bw;
+          ctx.strokeStyle = `rgba(${r() < 0.55 ? "110,70,35" : "255,240,215"},${0.04 + r() * 0.07})`;
+          ctx.lineWidth = 0.6 + r() * 1.6;
+          ctx.beginPath();
+          const amp = 1 + r() * 3.5, f = 0.004 + r() * 0.012, ph = r() * 6;
+          for (let y = y0; y <= y1; y += 16) ctx.lineTo(gx + Math.sin(y * f + ph) * amp, y);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(90,60,30,.32)";
+        ctx.fillRect(x0, y0, bw, 2);
       }
-    }
-    // middle of each edge: half diamonds that join into diamonds
-    ctx.fillStyle = ink;
-    for (const [x, y] of [[S / 2, 0], [S / 2, S], [0, S / 2], [S, S / 2]]) {
-      ctx.beginPath();
-      ctx.moveTo(x - 0.07 * S, y);
-      ctx.lineTo(x, y - 0.07 * S);
-      ctx.lineTo(x + 0.07 * S, y);
-      ctx.lineTo(x, y + 0.07 * S);
-      ctx.closePath();
-      ctx.fill();
-    }
-    // the flower in the middle
-    ctx.save();
-    ctx.translate(S / 2, S / 2);
-    for (let k = 0; k < 4; k++) {
-      ctx.rotate(Math.PI / 2);
-      ctx.fillStyle = terra;
-      ctx.beginPath();
-      ctx.ellipse(0.16 * S, 0, 0.12 * S, 0.055 * S, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = teal;
-      ctx.beginPath();
-      ctx.ellipse(0.15 * S * Math.SQRT1_2, 0.15 * S * Math.SQRT1_2, 0.06 * S, 0.025 * S, Math.PI / 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = mustard;
-    ctx.beginPath();
-    ctx.arc(0, 0, 0.05 * S, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    // a thin grout line and years of wear
-    ctx.strokeStyle = "rgba(40,30,20,.35)";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(0, 0, S, S);
-    for (let i = 0; i < 5000; i++) {
-      ctx.fillStyle = `rgba(${r() < 0.6 ? "255,250,240" : "20,15,10"},${r() * 0.07})`;
-      ctx.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2);
+      ctx.fillStyle = "rgba(90,60,30,.4)";
+      ctx.fillRect(x0, 0, 2, h);
     }
   }, { repeat, anisotropy: 16 }).texture;
 }
 
-export function asphaltTexture() {
-  return canvasTexture(512, 512, (ctx, w, h) => {
-    const r = rng(5);
-    ctx.fillStyle = "#15161a";
+/** a flat-woven rug: oatmeal, a rust and slate border, rows of small diamonds */
+export function rugTexture() {
+  return canvasTexture(1024, 720, (ctx, w, h) => {
+    const r = rng(19);
+    ctx.fillStyle = "#e9e1d1";
     ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 12000; i++) {
-      ctx.fillStyle = `rgba(${r() < 0.5 ? "0,0,0" : "120,120,130"},${r() * 0.12})`;
-      ctx.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2);
+    for (let y = 0; y < h; y += 3) {
+      ctx.fillStyle = `rgba(120,100,70,${0.03 + r() * 0.05})`;
+      ctx.fillRect(0, y, w, 1);
     }
-  }, { repeat: [10, 3] }).texture;
+    ctx.strokeStyle = "#c06a3a";
+    ctx.lineWidth = 12;
+    ctx.strokeRect(36, 36, w - 72, h - 72);
+    ctx.strokeStyle = "#5c7686";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(62, 62, w - 124, h - 124);
+    for (let row = 0; row < 4; row++) {
+      for (let i = 0; i < 9; i++) {
+        const cx = 150 + i * ((w - 300) / 8), cy = 175 + row * ((h - 350) / 3), s = 20;
+        ctx.fillStyle = (row + i) % 2 ? "#c06a3a" : "#5c7686";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy); ctx.lineTo(cx, cy + s); ctx.lineTo(cx - s, cy);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }).texture;
 }

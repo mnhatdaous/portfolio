@@ -1,9 +1,13 @@
 # Dao Minh Nhat · portfolio
 
-A small apartment in Saigon at night, in the monsoon. The site is the room: the laptop is **About**, the cork board is
-**Work**, the bookshelf is **Stack** and the phone is **Online**. The camera flies to each one, and an info card opens
-beside it. The same content is also a plain page (the **LO-FI** button) for search engines, screen readers and slow
-GPUs.
+A sunny study on a hill above a lake, on an autumn afternoon. Windows run across the front of the room and down both
+sides, so from the middle the view fills half the circle: maples turning, firs, a town on the shore, the lake and snowy
+mountains. A black cat sleeps on the desk; pet it.
+
+The site is the room: the computer is **About**, the cork board is **Work**, the bookshelf is **Stack** and the phone
+is **Online**. From the middle of the room you can turn all the way round; click one of them and the camera flies to it
+and an info card opens beside it. The same content is also a plain page (the **LO-FI** button) for search engines,
+screen readers and slow GPUs.
 
 Built with Next.js 16 (static export), React Three Fiber and three.js. Everything is drawn in code: there are no 3D
 models, textures or audio files.
@@ -38,6 +42,9 @@ Still to do:
 
 All in [`components/room/camera/`](components/room/camera/):
 
+- **Home turns all the way round.** In the middle of the room the orbit target sits 15 cm in front of the eye, so a
+  drag turns the head instead of circling an object, with no limit on the turn. The drag grabs the room, as in a
+  panorama, and the lens widens. Coming back from a station, you face the thing you just left.
 - **Stations, not hand-placed cameras.** Each page registers its object (`registerStation`). `frameFor()` measures
   the object's bounding box and backs the camera away along the station's direction until the box fits the part of
   the screen the card leaves free. Move an object and its page re-frames itself.
@@ -45,12 +52,24 @@ All in [`components/room/camera/`](components/room/camera/):
   walls, slides sideways with `setViewOffset` so the object sits beside the card, and drifts a few millimetres like a
   handheld camera.
 - **Flights.** Target and position ease together over 1.35 s (ease-in-out cubic), timed on the wall clock. A big turn
-  (desk → board or bookshelf) uses two overlapping moves on one clock: the head turns first, then the camera walks in
-  (2.6 s).
+  (say, from facing the desk to the board) uses two overlapping moves on one clock: the head turns first, then the
+  camera walks over (2.6 s).
 - **Limits.** Each station allows a little orbiting around its pose. Limits loosen during a flight and settle on
   landing, so nothing snaps.
-- **Deep links.** `/#work` starts at the desk, then flies to the board. With *prefers-reduced-motion*, every move is
-  an instant cut.
+- **Deep links.** `/#work` starts in the middle of the room, then flies to the board. With *prefers-reduced-motion*,
+  every move is an instant cut.
+
+## The view
+
+[`components/room/scene/Outside.tsx`](components/room/scene/Outside.tsx) paints it in shaders and instanced meshes. Everything sits
+within 215 m, so the depth buffer stays precise; from that far, walking round the room moves it by less than a degree,
+which reads as far away.
+- the sky: a gradient, a glow toward the sun, and streaks of cloud on a layer overhead
+- mountains and hills: ridgelines drawn on cylinders around the room, with snow above a wandering snowline and haze
+  low down
+- the lake: glints where the sun would reflect
+- a hillside running down from a bluff, so the treetops sit below the window line, and a town on the shore
+- the trees: firs as stacked cones, maples as clusters of lumpy blobs, with a leafy speckle and a slow sway
 
 ## Map
 
@@ -59,14 +78,14 @@ All in [`components/room/camera/`](components/room/camera/):
 | `app/layout.tsx` | fonts, and the boot script that picks the room or the plain page before first paint |
 | `components/StaticSite.tsx` | the plain (lo-fi) page |
 | `components/room/Experience.tsx` | the canvas, keyboard, back/forward |
-| `components/room/store.ts` | page state, selection, lamps, fan |
+| `components/room/store.ts` | page state, selection, lamps |
 | `components/room/hud/Hud.tsx` | menu, cards, hover labels, the welcome gate |
-| `components/room/scene/` | the room, desk props, board, bookshelf, the alley outside, rain on the glass |
-| `components/room/lib/audio.ts` | rain, city hum, motorbikes and fan, generated with Web Audio |
+| `components/room/scene/` | the room, the desk and its things, the cat, the board, the shelves, the view outside |
+| `components/room/lib/audio.ts` | wind in the trees, birds, the lake, the cat's purr and meow, all made with Web Audio |
 
 ## Keys and URLs
 
-`1`–`4` sections · `Esc` back to the desk · `←` `→` flip through notes or books ·
+`1`–`4` sections · `Esc` back to the room · `←` `→` turn round in the room, or flip through notes and books ·
 `/#about` `/#work` `/#stack` `/#online` open a section · `?lofi=1` plain page (remembered) · `?room=1` the 3D room.
 
 Without WebGL 2, or with a software renderer, visitors get the plain page with a link into the room.

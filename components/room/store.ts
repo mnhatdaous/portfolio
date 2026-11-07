@@ -32,9 +32,9 @@ type RoomState = {
   hover: string | null;
   workSel: number;
   stackSel: number;
+  /** the pendant over the desk, and the reading lamp: both off in the daytime */
   lamp: boolean;
   floorLamp: boolean;
-  fan: number;
   /** cards are hidden while the camera flies to their station */
   flying: boolean;
   go: (page: Page, opts?: { replace?: boolean; fromHistory?: boolean }) => void;
@@ -46,7 +46,6 @@ type RoomState = {
   selectStack: (i: number) => void;
   toggleLamp: () => void;
   toggleFloorLamp: () => void;
-  cycleFan: () => void;
   setFlying: (v: boolean) => void;
 };
 
@@ -58,9 +57,8 @@ export const useRoom = create<RoomState>((set, get) => ({
   hover: null,
   workSel: 0,
   stackSel: -1,
-  lamp: true,
-  floorLamp: true,
-  fan: 2,
+  lamp: false,
+  floorLamp: false,
   flying: false,
   go: (page, opts = {}) => {
     if (get().page === page) return;
@@ -83,7 +81,6 @@ export const useRoom = create<RoomState>((set, get) => ({
   selectStack: (i) => set({ stackSel: (i + allSkills.length) % allSkills.length }),
   toggleLamp: () => set((s) => ({ lamp: !s.lamp })),
   toggleFloorLamp: () => set((s) => ({ floorLamp: !s.floorLamp })),
-  cycleFan: () => set((s) => ({ fan: (s.fan + 1) % 4 })),
   setFlying: (flying) => set({ flying }),
 }));
 

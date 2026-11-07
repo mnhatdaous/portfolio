@@ -1,16 +1,58 @@
 "use client";
-import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { clickable, solid } from "../lib/interact";
-import { plasterTexture, tileTexture, woodTexture } from "../lib/textures";
+import { planksTexture, plasterTexture, rugTexture, woodTexture } from "../lib/textures";
 import { useRoom } from "../store";
 
-// The apartment: one room on the first floor of a tube house, the desk under the window, the alley outside.
-// Metres; y up; the window wall is at z = -0.5 and the camera looks at it from +z.
-export const ROOM = { x0: -1.9, x1: 2.1, h: 2.8, z0: -0.5, z1: 3.8 };
-export const WIN = { x0: -0.6, x1: 1.0, y0: 0.98, y1: 2.38, zOut: -0.72 };
-const WALL_D = ROOM.z0 - WIN.zOut;
+// The study: one room on a hill above the lake. The big window over the desk runs corner to corner and the side
+// windows run back to the middle of the room, so from the middle the view fills half the circle; the back half is
+// walls, with the board, the bookshelves and the door.
+// Metres; y up; the window wall is at z = -2.3 and the camera starts in the middle, facing it.
+export const ROOM = { x0: -2.3, x1: 2.3, z0: -2.3, z1: 2.3, h: 2.85 };
+/** the walls are this thick, built outward from the room's inner faces */
+export const WALL_T = 0.16;
+/** the big window's sill and head; the side windows start lower and run back to z = sideZ1 */
+export const WIN = { y0: 0.8, y1: 2.5, sideY0: 0.5, sideZ1: 0.35 };
+export const OAK = "#d3a774";
+
+type V3 = [number, number, number];
+const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h, T = WALL_T;
+const SIDE_LEN = WIN.sideZ1 - ROOM.z0, BACK_LEN = ROOM.z1 + T - WIN.sideZ1, SIDE_MID = (ROOM.z0 + WIN.sideZ1) / 2;
+const SIDES = [-1, 1].map((s) => ({ s, x: s < 0 ? ROOM.x0 - T / 2 : ROOM.x1 + T / 2 }));
+
+/** wall pieces around the windows, and the size of the face each shows the room (for the plaster's scale) */
+const WALLS: { p: V3; s: V3; face: [number, number] }[] = [
+  { p: [0, WIN.y0 / 2, ROOM.z0 - T / 2], s: [W + 2 * T, WIN.y0, T], face: [W, WIN.y0] },
+  { p: [0, (WIN.y1 + H) / 2, ROOM.z0 - T / 2], s: [W + 2 * T, H - WIN.y1, T], face: [W, H - WIN.y1] },
+  ...SIDES.flatMap(({ x }) => [
+    { p: [x, WIN.sideY0 / 2, SIDE_MID] as V3, s: [T, WIN.sideY0, SIDE_LEN] as V3, face: [SIDE_LEN, WIN.sideY0] as [number, number] },
+    { p: [x, (WIN.y1 + H) / 2, SIDE_MID] as V3, s: [T, H - WIN.y1, SIDE_LEN] as V3, face: [SIDE_LEN, H - WIN.y1] as [number, number] },
+    { p: [x, H / 2, WIN.sideZ1 + BACK_LEN / 2] as V3, s: [T, H, BACK_LEN] as V3, face: [BACK_LEN, H] as [number, number] },
+  ]),
+  { p: [0, H / 2, ROOM.z1 + T / 2], s: [W + 2 * T, H, T], face: [W, H] },
+];
+
+/** the oak that lines the window openings: sills, heads, the corner posts, mullions */
+const LINING: { p: V3; s: V3 }[] = [
+  { p: [0, WIN.y0 + 0.012, ROOM.z0 - T / 2 + 0.015], s: [W, 0.024, T + 0.03] },
+  { p: [0, WIN.y1 - 0.012, ROOM.z0 - T / 2], s: [W, 0.024, T] },
+  ...[-0.95, 0.95].map((x) => ({ p: [x, (WIN.y0 + WIN.y1) / 2, ROOM.z0 - T / 2] as V3, s: [0.06, WIN.y1 - WIN.y0, T * 0.75] as V3 })),
+  ...SIDES.flatMap(({ s, x }) => [
+    { p: [x - s * 0.015, WIN.sideY0 + 0.012, SIDE_MID] as V3, s: [T + 0.03, 0.024, SIDE_LEN] as V3 },
+    { p: [x, WIN.y1 - 0.012, SIDE_MID] as V3, s: [T, 0.024, SIDE_LEN] as V3 },
+    { p: [x, (WIN.sideY0 + WIN.y1) / 2, WIN.sideZ1 - 0.012] as V3, s: [T, WIN.y1 - WIN.sideY0, 0.024] as V3 },
+    { p: [x, (WIN.sideY0 + WIN.y1) / 2, SIDE_MID] as V3, s: [T * 0.75, WIN.y1 - WIN.sideY0, 0.06] as V3 },
+    { p: [x, (WIN.sideY0 + WIN.y1) / 2, ROOM.z0 - T / 2] as V3, s: [T + 0.03, WIN.y1 - WIN.sideY0, T + 0.03] as V3 },
+  ]),
+];
+
+/** skirting boards along the solid walls */
+const SKIRTING: { p: V3; s: V3 }[] = [
+  { p: [0, 0.035, ROOM.z1 - 0.008], s: [W, 0.07, 0.016] },
+  { p: [0, 0.035, ROOM.z0 + 0.008], s: [W, 0.07, 0.016] },
+  ...SIDES.map(({ s }) => ({ p: [s < 0 ? ROOM.x0 + 0.008 : ROOM.x1 - 0.008, 0.035, (WIN.sideZ1 + ROOM.z1) / 2] as V3, s: [0.016, 0.07, ROOM.z1 - WIN.sideZ1] as V3 })),
+];
 
 function repeated(t: THREE.Texture, rx: number, ry: number) {
   const c = t.clone();
@@ -22,149 +64,97 @@ function repeated(t: THREE.Texture, rx: number, ry: number) {
 
 export default function Room() {
   const m = useMemo(() => {
-    const plaster = plasterTexture("#a3c3b0", [1, 1]);
-    const wall = (w: number, h: number) => new THREE.MeshStandardMaterial({ map: repeated(plaster, w / 1.3, h / 1.3), roughness: 0.95 });
+    const plaster = plasterTexture("#efe7da", [1, 1], 7);
     return {
-      wall,
-      floor: new THREE.MeshStandardMaterial({ map: tileTexture([20, 21.5]), roughness: 0.38 }),
-      ceil: new THREE.MeshStandardMaterial({ color: "#c9cbc1", roughness: 1 }),
-      skirting: new THREE.MeshStandardMaterial({ color: "#3d3129", roughness: 0.6 }),
-      frame: new THREE.MeshStandardMaterial({ color: "#2d5848", roughness: 0.5 }),
-      iron: new THREE.MeshStandardMaterial({ color: "#17191b", roughness: 0.45, metalness: 0.6 }),
-      sill: new THREE.MeshStandardMaterial({ map: woodTexture(21, "#6b4226", [1, 1]), roughness: 0.45 }),
-      curtain: new THREE.MeshStandardMaterial({ color: "#d7ccb6", roughness: 0.95, side: THREE.DoubleSide, transparent: true, opacity: 0.93 }),
-      rod: new THREE.MeshStandardMaterial({ color: "#8a7a62", roughness: 0.4, metalness: 0.5 }),
-      lampGlass: new THREE.MeshStandardMaterial({ color: "#e9e6dc", roughness: 0.6 }),
-      chair: new THREE.MeshStandardMaterial({ map: woodTexture(31, "#5a3420", [1, 1]), roughness: 0.55 }),
+      walls: WALLS.map((w) => new THREE.MeshStandardMaterial({ map: repeated(plaster, w.face[0] / 1.4, w.face[1] / 1.4), roughness: 0.95 })),
+      floor: new THREE.MeshStandardMaterial({ map: planksTexture("#cfa673", [W / 1.1, D / 2.2]), roughness: 0.55 }),
+      ceil: new THREE.MeshStandardMaterial({ color: "#f2ebe0", roughness: 1 }),
+      oak: new THREE.MeshStandardMaterial({ map: woodTexture(21, OAK, [1, 1]), roughness: 0.5 }),
+      glass: new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.02, depthWrite: false }),
+      rug: new THREE.MeshStandardMaterial({ map: rugTexture(), roughness: 0.95 }),
+      door: new THREE.MeshStandardMaterial({ color: "#ebe4d8", roughness: 0.7 }),
+      brass: new THREE.MeshStandardMaterial({ color: "#b8925a", roughness: 0.3, metalness: 0.8 }),
     };
   }, []);
-
-  const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h;
-  const cx = (ROOM.x0 + ROOM.x1) / 2, cz = (ROOM.z0 + ROOM.z1) / 2, zw = ROOM.z0 - WALL_D / 2;
-  const winW = WIN.x1 - WIN.x0, winH = WIN.y1 - WIN.y0, wcx = (WIN.x0 + WIN.x1) / 2;
-  const pieces: [number, number, number, number][] = [
-    // x, y, w, h of the window wall around the opening
-    [(ROOM.x0 + WIN.x0) / 2, H / 2, WIN.x0 - ROOM.x0, H],
-    [(WIN.x1 + ROOM.x1) / 2, H / 2, ROOM.x1 - WIN.x1, H],
-    [wcx, WIN.y0 / 2, winW, WIN.y0],
-    [wcx, (WIN.y1 + H) / 2, winW, H - WIN.y1],
-  ];
+  const lookOut = clickable("LOOK OUTSIDE", () => useRoom.getState().go("window"));
 
   return (
     <group>
-      {/* floor, ceiling, walls */}
-      <mesh rotation-x={-Math.PI / 2} position={[cx, 0, cz]} receiveShadow material={m.floor} {...solid}>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0]} receiveShadow material={m.floor} {...solid}>
         <planeGeometry args={[W, D]} />
       </mesh>
-      <mesh rotation-x={Math.PI / 2} position={[cx, H, cz]} material={m.ceil}>
-        <planeGeometry args={[W, D]} />
+      {/* the ceiling is a slab, so the sun only comes in through the windows */}
+      <mesh position={[0, H + 0.06, 0]} castShadow receiveShadow material={m.ceil}>
+        <boxGeometry args={[W + 2 * T, 0.12, D + 2 * T]} />
       </mesh>
-      {pieces.map(([x, y, w, h], i) => (
-        <mesh key={i} position={[x, y, zw]} receiveShadow material={m.wall(w, h)} {...solid}>
-          <boxGeometry args={[w, h, WALL_D]} />
+      {WALLS.map((w, i) => (
+        <mesh key={i} position={w.p} castShadow receiveShadow material={m.walls[i]} {...solid}>
+          <boxGeometry args={w.s} />
         </mesh>
       ))}
-      <mesh position={[ROOM.x0, H / 2, cz]} rotation-y={Math.PI / 2} receiveShadow material={m.wall(D, H)} {...solid}>
-        <planeGeometry args={[D, H]} />
-      </mesh>
-      <mesh position={[ROOM.x1, H / 2, cz]} rotation-y={-Math.PI / 2} receiveShadow material={m.wall(D, H)} {...solid}>
-        <planeGeometry args={[D, H]} />
-      </mesh>
-      <mesh position={[cx, H / 2, ROOM.z1]} rotation-y={Math.PI} material={m.wall(W, H)} {...solid}>
-        <planeGeometry args={[W, H]} />
-      </mesh>
-      {/* skirting boards */}
-      <mesh position={[cx, 0.04, ROOM.z0 + 0.008]} material={m.skirting}><boxGeometry args={[W, 0.08, 0.016]} /></mesh>
-      <mesh position={[ROOM.x0 + 0.008, 0.04, cz]} material={m.skirting}><boxGeometry args={[0.016, 0.08, D]} /></mesh>
-      <mesh position={[ROOM.x1 - 0.008, 0.04, cz]} material={m.skirting}><boxGeometry args={[0.016, 0.08, D]} /></mesh>
+      {[...LINING, ...SKIRTING].map((b, i) => (
+        <mesh key={i} position={b.p} castShadow receiveShadow material={m.oak}>
+          <boxGeometry args={b.s} />
+        </mesh>
+      ))}
 
-      <WindowFrame m={m} />
+      {/* the glass: barely there, but it's what a click on the view lands on */}
+      <group {...lookOut}>
+        <mesh position={[0, (WIN.y0 + WIN.y1) / 2, ROOM.z0 - T / 2]} material={m.glass}>
+          <planeGeometry args={[W, WIN.y1 - WIN.y0]} />
+        </mesh>
+        {SIDES.map(({ s, x }) => (
+          <mesh key={s} position={[x, (WIN.sideY0 + WIN.y1) / 2, SIDE_MID]} rotation-y={-s * Math.PI / 2} material={m.glass}>
+            <planeGeometry args={[SIDE_LEN, WIN.y1 - WIN.sideY0]} />
+          </mesh>
+        ))}
+      </group>
 
-      {/* the sill */}
-      <mesh position={[wcx, WIN.y0 + 0.012, -0.53]} castShadow receiveShadow material={m.sill} {...solid}>
-        <boxGeometry args={[winW + 0.12, 0.028, 0.2]} />
-      </mesh>
-
-      <Curtain material={m.curtain} />
-      <mesh position={[(WIN.x0 + 1.5) / 2 - 0.05, 2.5, -0.44]} rotation-z={Math.PI / 2} material={m.rod}>
-        <cylinderGeometry args={[0.009, 0.009, 2.3, 10]} />
+      <mesh rotation-x={-Math.PI / 2} position={[0.1, 0.003, 0.45]} receiveShadow material={m.rug}>
+        <planeGeometry args={[2.6, 1.8]} />
       </mesh>
 
-      {/* the ceiling light, off */}
-      <mesh position={[0.15, H - 0.03, 1.6]} material={m.lampGlass}>
-        <cylinderGeometry args={[0.2, 0.22, 0.05, 32]} />
-      </mesh>
-
-      <Chair material={m.chair} />
+      <Door m={m} />
+      <Chair material={m.oak} />
     </group>
   );
 }
 
-function WindowFrame({ m }: { m: { frame: THREE.Material; iron: THREE.Material } }) {
-  const z = -0.66, winW = WIN.x1 - WIN.x0, winH = WIN.y1 - WIN.y0, wcx = (WIN.x0 + WIN.x1) / 2, wcy = (WIN.y0 + WIN.y1) / 2;
-  const t = 0.055;
-  const bars = useMemo(() => {
-    const out: number[] = [];
-    for (let x = WIN.x0 + 0.1; x < WIN.x1 - 0.05; x += 0.125) out.push(x);
-    return out;
-  }, []);
+/** the way out, in the back wall: a painted door in an oak casing */
+function Door({ m }: { m: { oak: THREE.Material; door: THREE.Material; brass: THREE.Material } }) {
+  const x = 1.4, w = 0.86, h = 2.05, z = ROOM.z1;
   return (
-    <group {...clickable("LOOK OUTSIDE", () => useRoom.getState().go("window"))}>
-      {/* painted wooden frame: outer, the middle post, the transom */}
-      <mesh position={[wcx, WIN.y1 - t / 2, z]} material={m.frame}><boxGeometry args={[winW, t, 0.06]} /></mesh>
-      <mesh position={[wcx, WIN.y0 + t / 2, z]} material={m.frame}><boxGeometry args={[winW, t, 0.06]} /></mesh>
-      <mesh position={[WIN.x0 + t / 2, wcy, z]} material={m.frame}><boxGeometry args={[t, winH, 0.06]} /></mesh>
-      <mesh position={[WIN.x1 - t / 2, wcy, z]} material={m.frame}><boxGeometry args={[t, winH, 0.06]} /></mesh>
-      <mesh position={[wcx, wcy, z]} material={m.frame}><boxGeometry args={[0.045, winH, 0.06]} /></mesh>
-      <mesh position={[wcx, 2.0, z]} material={m.frame}><boxGeometry args={[winW, 0.04, 0.06]} /></mesh>
-      {/* the iron grille outside the glass, with its band of rings */}
-      {bars.map((x) => (
-        <mesh key={x} position={[x, wcy, WIN.zOut + 0.02]} material={m.iron}><boxGeometry args={[0.012, winH, 0.012]} /></mesh>
+    <group>
+      <mesh position={[x, h / 2, z - 0.014]} castShadow receiveShadow material={m.door}><boxGeometry args={[w, h, 0.03]} /></mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[x + s * (w / 2 + 0.03), h / 2 + 0.03, z - 0.012]} castShadow material={m.oak}><boxGeometry args={[0.06, h + 0.06, 0.026]} /></mesh>
       ))}
-      {[WIN.y0 + 0.06, WIN.y0 + 0.32, WIN.y1 - 0.22].map((y) => (
-        <mesh key={y} position={[wcx, y, WIN.zOut + 0.02]} material={m.iron}><boxGeometry args={[winW, 0.012, 0.012]} /></mesh>
-      ))}
-      {/* the band of rings sits low, under the eye line */}
-      {bars.slice(0, -1).map((x) => (
-        <mesh key={x} position={[x + 0.0625, WIN.y0 + 0.19, WIN.zOut + 0.02]} material={m.iron}><torusGeometry args={[0.05, 0.0045, 6, 24]} /></mesh>
-      ))}
+      <mesh position={[x, h + 0.06, z - 0.012]} castShadow material={m.oak}><boxGeometry args={[w + 0.12, 0.06, 0.026]} /></mesh>
+      <mesh position={[x - w / 2 + 0.08, 1.02, z - 0.045]} rotation-z={Math.PI / 2} castShadow material={m.brass}>
+        <cylinderGeometry args={[0.009, 0.009, 0.12, 12]} />
+      </mesh>
+      <mesh position={[x - w / 2 + 0.08 - 0.05, 1.02, z - 0.035]} rotation-x={Math.PI / 2} material={m.brass}>
+        <cylinderGeometry args={[0.022, 0.022, 0.012, 20]} />
+      </mesh>
     </group>
   );
 }
 
-function Curtain({ material }: { material: THREE.Material }) {
-  const ref = useRef<THREE.Mesh>(null);
-  const geo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(0.5, 1.6, 48, 1);
-    const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 44) * 0.025);
-    g.computeVertexNormals();
-    g.translate(0, -0.8, 0); // hang from the top edge
-    return g;
-  }, []);
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    const fan = useRoom.getState().fan, t = clock.elapsedTime;
-    ref.current.rotation.x = (Math.sin(t * 1.3) * 0.5 + Math.sin(t * 2.9) * 0.3) * 0.025 * fan;
-  });
-  return <mesh ref={ref} geometry={geo} material={material} position={[1.2, 2.49, -0.43]} castShadow receiveShadow />;
-}
-
+/** a light oak chair at the desk */
 function Chair({ material }: { material: THREE.Material }) {
   const legs: [number, number][] = [[-0.19, -0.18], [0.19, -0.18], [-0.19, 0.18], [0.19, 0.18]];
   return (
-    <group position={[0.12, 0, 0.72]} rotation-y={0.18}>
-      <mesh position={[0, 0.45, 0]} castShadow receiveShadow material={material}><boxGeometry args={[0.44, 0.03, 0.42]} /></mesh>
+    <group position={[0.08, 0, -1.25]} rotation-y={0.12}>
+      <mesh position={[0, 0.46, 0]} castShadow receiveShadow material={material}><boxGeometry args={[0.44, 0.03, 0.42]} /></mesh>
       {legs.map(([x, z]) => (
-        <mesh key={`${x}${z}`} position={[x, 0.225, z]} castShadow material={material}><cylinderGeometry args={[0.017, 0.015, 0.45, 10]} /></mesh>
+        <mesh key={`${x}${z}`} position={[x, 0.23, z]} rotation-x={z * 0.12} castShadow material={material}>
+          <cylinderGeometry args={[0.016, 0.012, 0.46, 10]} />
+        </mesh>
       ))}
       {[-0.19, 0.19].map((x) => (
-        <mesh key={x} position={[x, 0.68, 0.19]} castShadow material={material}><cylinderGeometry args={[0.016, 0.016, 0.46, 10]} /></mesh>
+        <mesh key={x} position={[x, 0.7, 0.2]} rotation-x={-0.1} castShadow material={material}><cylinderGeometry args={[0.015, 0.015, 0.48, 10]} /></mesh>
       ))}
-      <mesh position={[0, 0.88, 0.19]} castShadow material={material}><boxGeometry args={[0.44, 0.075, 0.025]} /></mesh>
-      {[-0.08, 0, 0.08].map((x) => (
-        <mesh key={x} position={[x, 0.66, 0.19]} castShadow material={material}><boxGeometry args={[0.03, 0.36, 0.015]} /></mesh>
-      ))}
+      <mesh position={[0, 0.84, 0.215]} rotation-x={-0.1} castShadow material={material}><boxGeometry args={[0.44, 0.13, 0.022]} /></mesh>
     </group>
   );
 }

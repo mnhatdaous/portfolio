@@ -2,7 +2,7 @@
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useState } from "react";
 import { profile } from "@/content/profile";
-import { INTRO } from "./camera/CameraRig";
+import { INTRO, look } from "./camera/CameraRig";
 import Hud from "./hud/Hud";
 import { sound } from "./lib/audio";
 import Scene from "./scene/Scene";
@@ -33,7 +33,8 @@ export default function Experience() {
       if (m) return s.go(m.page);
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         const d = e.key === "ArrowRight" ? 1 : -1;
-        if (s.page === "work") s.selectWork(s.workSel + d);
+        if (s.page === "home") look.turn(-d * (Math.PI / 6));
+        else if (s.page === "work") s.selectWork(s.workSel + d);
         else if (s.page === "stack") s.selectStack(s.stackSel < 0 && d < 0 ? 0 : s.stackSel + d);
       }
     };
@@ -53,7 +54,7 @@ export default function Experience() {
         shadows="percentage"
         dpr={[1, 1.75]}
         gl={{ antialias: false, powerPreference: "high-performance", stencil: false }}
-        camera={{ fov: 36, near: 0.03, far: 220, position: [INTRO.pos.x, INTRO.pos.y, INTRO.pos.z] }}
+        camera={{ fov: 36, near: 0.03, far: 240, position: [INTRO.pos.x, INTRO.pos.y, INTRO.pos.z] }}
       >
         <Suspense fallback={null}>
           <Scene />
@@ -61,8 +62,9 @@ export default function Experience() {
       </Canvas>
       <h1 className="sr">{profile.name}, {profile.role}</h1>
       <p className="sr">
-        A small apartment in Saigon at night, rain on the window. The laptop opens About, the cork board Work, the
-        bookshelf Stack and the phone Online. A plain version of this page is linked at the bottom.
+        A sunny study on a hill above a lake, windows across the front of the room and a cat asleep on the desk. The
+        computer opens About, the cork board Work, the bookshelf Stack and the phone Online. A plain version of this page
+        is linked at the bottom.
       </p>
       <Hud />
     </div>

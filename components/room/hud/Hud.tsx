@@ -18,7 +18,7 @@ function useClock() {
 
 // ---------------------------------------------------------------- the card beside each station
 const EYEBROW: Partial<Record<Page, string>> = {
-  about: "01 · The laptop",
+  about: "01 · The computer",
   work: "02 · The cork board",
   stack: "03 · The bookshelf",
   online: "04 · The phone",
@@ -217,9 +217,9 @@ function Gate() {
   return (
     <div className={`gate${entered ? " gone" : ""}`} aria-hidden={entered} inert={entered}>
       <div className="gate-box">
-        <div className="when">Sài Gòn · {time} · raining</div>
+        <div className="when">Sài Gòn · {time} · sunny</div>
         <h1>{profile.name}</h1>
-        <p>{profile.role}. Come in, it&apos;s raining.</p>
+        <p>{profile.role}. Come in, mind the cat.</p>
         <div className="phin" aria-hidden="true">
           <div className="top" />
           {!done && <div className="drop" />}
@@ -263,16 +263,16 @@ export default function Hud() {
     useRoom.getState().setSound(next);
     sound.start(next);
   };
-  const label = page === "home" ? "At the desk" : page === "window" ? "Looking out of the window" : TITLE[page];
+  const label = page === "home" ? "In the room" : page === "window" ? "Looking out of the window" : TITLE[page];
 
   return (
     <>
       <div className="hud-top" style={{ opacity: entered ? 1 : 0, transition: "opacity .6s" }}>
-        <button className="hud-name" onClick={() => go("home")}>
+        <button className="hud-name frost" onClick={() => go("home")}>
           {profile.name}
           <small>{profile.role} · Sài Gòn</small>
         </button>
-        <nav className="hud-menu" aria-label="Site">
+        <nav className="hud-menu frost" aria-label="Site">
           {MENU.map((m) => (
             <a
               key={m.page}
@@ -290,20 +290,20 @@ export default function Hud() {
 
       <div className="hud-bottom" style={{ opacity: entered ? 1 : 0, transition: "opacity .6s" }}>
         {page !== "home" ? (
-          <button className="pill" onClick={() => go("home")}>← <span className="lbl">Back to the desk · Esc</span></button>
+          <button className="pill frost" onClick={() => go("home")}>← <span className="lbl">Back to the room · Esc</span></button>
         ) : null}
         <span className="spacer" />
-        {page === "home" && <span className="hint">The laptop, the board, the bookshelf and the phone open things. Drag to look around.</span>}
-        {page === "window" && <span className="hint">Drag to look around · Esc to come back</span>}
+        {page === "home" && <span className="hint frost">Drag to look around. The computer, the board, the bookshelf and the phone open things; the cat likes a pat.</span>}
+        {page === "window" && <span className="hint frost">Drag to look around · Esc to come back</span>}
         <span className="spacer" />
-        <button className="pill" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>
+        <button className="pill frost" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 9h4l5-4v14l-5-4H4z" />
             {on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /> : <path d="M17 9.5l5 5M22 9.5l-5 5" />}
           </svg>
           <span className="lbl">Sound {on ? "on" : "off"}</span>
         </button>
-        <a className="pill" href="./?lofi=1" title="A plain page with the same content">
+        <a className="pill frost" href="./?lofi=1" title="A plain page with the same content">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5" /><path d="M8.5 8h7M8.5 12h7M8.5 16h4" /></svg>
           <span className="lbl">Lo-fi</span>
         </a>

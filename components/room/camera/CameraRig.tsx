@@ -8,6 +8,8 @@ import { STATIONS, stationBox } from "./stations";
 
 // Two cameras. `rig` is moved by the orbit controls and by flights; R3F's default camera (`view`) is what renders:
 // the rig's pose, kept inside the room, nudged sideways so the object sits beside the card, plus a slow handheld drift.
+// At home the orbit target sits just in front of the eye, so a drag turns the head: the visitor can look all the way
+// round the room.
 
 type V3 = THREE.Vector3;
 type Frame = { tgt: V3; pos: V3 };
@@ -17,13 +19,26 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const UP = V(0, 1, 0);
 const BASE_FOV = 36;
 // the walls, less a hand's width: the rendered camera never passes them
-const ROOM = { x0: -1.78, x1: 1.98, y0: 0.25, y1: 2.68, z0: -0.44, z1: 3.68 };
-// where the camera stands before ENTER: the back of the room, the whole desk in view
-export const INTRO: Frame = { pos: V(0.75, 1.95, 3.45), tgt: V(0.12, 1.2, -0.35) };
-// standing in the middle of the room, at eye height: turns between walls pass near here
-const EYE = V(0.15, 1.5, 1.75);
+const ROOM = { x0: -2.16, x1: 2.16, y0: 0.25, y1: 2.72, z0: -2.2, z1: 2.16 };
+// where the camera stands before ENTER: the back of the room, the desk and the big window in view
+export const INTRO: Frame = { pos: V(0.85, 1.75, 2.05), tgt: V(0, 1.2, -2.1) };
+// home: the middle of the room at eye height, with the orbit target LOOK in front of the eye
+const HOME = V(0, 1.42, 0.55);
+const LOOK = 0.15;
+const FORWARD = V(0, -0.09, -1).normalize();
+// turns between walls pass near here
+const EYE = V(0, 1.5, 0.4);
 // looking out: the camera turns about a point on the glass, so a drag moves your head
-const GLASS = V(0.2, 1.62, -0.6);
+const GLASS = V(0, 1.62, -2.3);
+
+/** which way the visitor faces at home: the desk at first, then wherever they last looked or came back from */
+const homeFacing = FORWARD.clone();
+function homeFrame(): Frame {
+  return { pos: HOME.clone(), tgt: HOME.clone().addScaledVector(homeFacing, LOOK) };
+}
+
+/** the arrow keys turn the head at home; set by the rig */
+export const look = { turn: (a: number) => void a };
 
 const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const sineIn = (a: number, b: number, x: number) => (x <= a ? 0 : x >= b ? 1 : 0.5 - 0.5 * Math.cos((Math.PI * (x - a)) / (b - a)));
@@ -34,16 +49,23 @@ export function lensFov(aspect: number) {
   return THREE.MathUtils.radToDeg(2 * Math.atan(Math.max(t, Math.min(0.62, (t * 1.45) / aspect))));
 }
 
+/** looking around the room (and out of the window) wants a wider lens: about 76° across, 50–74° tall */
+export function wideFov(aspect: number) {
+  const v = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(38)) / aspect);
+  return THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(v), 50, 74);
+}
+
 function windowFrame(): Frame {
   return { tgt: GLASS.clone(), pos: GLASS.clone().add(V(0, 0.16, 0.95)) };
 }
 
 /** where to stand for a page: back away along the station's direction until its box fits the free part of the screen */
 export function frameFor(page: Page, W: number, H: number, fov: number): Frame {
+  if (page === "home") return homeFrame();
   if (page === "window") return windowFrame();
   const def = STATIONS[page];
   const box = stationBox(page);
-  if (!box) return { tgt: INTRO.tgt.clone(), pos: INTRO.pos.clone() };
+  if (!box) return homeFrame();
   const c = box.getCenter(V()), s = box.getSize(V());
   const back = V(...def.dir).normalize();
   const look = back.clone().negate();
@@ -63,6 +85,8 @@ export function frameFor(page: Page, W: number, H: number, fov: number): Frame {
 
 /** how far the visitor may orbit at a page, around the pose the flight lands in */
 function limitsFor(page: Page, f: Frame) {
+  // at home: all the way round, from the floor in front of the desk up to the top of the windows
+  if (page === "home") return { minAz: -Infinity, maxAz: Infinity, minPol: 0.8, maxPol: 2.05, minDist: LOOK, maxDist: LOOK };
   const sph = new THREE.Spherical().setFromVector3(f.pos.clone().sub(f.tgt));
   const win = page === "window", spread = STATIONS[page].spread;
   return {
@@ -93,22 +117,30 @@ export default function CameraRig() {
   const gl = useThree((s) => s.gl);
   const size = useThree((s) => s.size);
   const rig = useMemo(() => {
-    const c = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.03, 220);
+    const c = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.03, 240);
     c.position.copy(INTRO.pos);
     return c;
   }, []);
+  // made detached and connected in an effect: React may run a memo twice in development, and a second set of
+  // listeners on the canvas would fight this one
   const controls = useMemo(() => {
-    const c = new OrbitControls(rig, gl.domElement);
+    const c = new OrbitControls(rig);
     Object.assign(c, { enableDamping: true, dampingFactor: 0.06, enablePan: false, rotateSpeed: 0.45, zoomSpeed: 0.6 });
     c.target.copy(INTRO.tgt);
     c.update();
     return c;
-  }, [rig, gl]);
-  useEffect(() => () => controls.dispose(), [controls]);
+  }, [rig]);
+  useEffect(() => {
+    controls.connect(gl.domElement);
+    return () => controls.disconnect();
+  }, [controls, gl]);
 
   const fly = useRef<Flight | null>(null);
   const shift = useRef({ x: 0, y: 0 });
   const fovRef = useRef(lensFov(size.width / size.height));
+  const wideRef = useRef(wideFov(size.width / size.height));
+  const curFov = useRef(wideRef.current);
+  const turn = useRef(0);
   const sizeRef = useRef(size);
   sizeRef.current = size;
   const reduce = useMemo(() => reduceMotion(), []);
@@ -118,7 +150,12 @@ export default function CameraRig() {
   const loose = () => Object.assign(controls, { minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, minPolarAngle: 0.1, maxPolarAngle: Math.PI - 0.1, minDistance: 0.05, maxDistance: 50 });
   const settle = (page: Page, f: Frame) => {
     const l = limitsFor(page, f);
-    Object.assign(controls, { minAzimuthAngle: l.minAz, maxAzimuthAngle: l.maxAz, minPolarAngle: l.minPol, maxPolarAngle: l.maxPol, minDistance: l.minDist, maxDistance: l.maxDist });
+    Object.assign(controls, {
+      minAzimuthAngle: l.minAz, maxAzimuthAngle: l.maxAz, minPolarAngle: l.minPol, maxPolarAngle: l.maxPol, minDistance: l.minDist, maxDistance: l.maxDist,
+      // at home a drag grabs the room and pulls it round, like a panorama; elsewhere it orbits the object
+      rotateSpeed: page === "home" ? -0.32 : 0.45,
+      enableZoom: page !== "home",
+    });
   };
   const place = (page: Page, f: Frame) => {
     fly.current = null;
@@ -130,6 +167,15 @@ export default function CameraRig() {
   };
 
   const flyTo = (page: Page, opts: { dur?: number; soft?: boolean; instant?: boolean; prev?: Page; land?: () => void } = {}) => {
+    // back home from a station: face the thing you were just looking at
+    if (page === "home" && opts.prev) {
+      const box = opts.prev === "window" ? null : stationBox(opts.prev);
+      if (box) {
+        const to = box.getCenter(V()).sub(HOME);
+        to.y *= 0.35;
+        homeFacing.copy(to.normalize());
+      } else if (opts.prev === "window") homeFacing.copy(FORWARD);
+    }
     const dest = frame(page);
     if (opts.instant || reduce) {
       place(page, dest);
@@ -139,10 +185,10 @@ export default function CameraRig() {
     // a big turn (to the board or the bookshelf) turns the head first, then walks over
     const a = rig.position.clone().sub(controls.target).setY(0).normalize();
     const b = dest.pos.clone().sub(dest.tgt).setY(0).normalize();
-    const turn = Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1));
+    const turnAngle = Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1));
     const prev = opts.prev ?? "home";
     let via: Frame | undefined, dur = opts.dur ?? 1.35;
-    if (!opts.dur && turn > 0.9 && page !== "window" && prev !== "window") {
+    if (!opts.dur && turnAngle > 0.9 && page !== "window" && prev !== "window") {
       const pos = rig.position.clone().lerp(EYE, 0.55);
       pos.y = Math.max(pos.y, 1.45);
       via = { tgt: dest.tgt.clone(), pos };
@@ -166,6 +212,9 @@ export default function CameraRig() {
   useEffect(() => {
     const unsub = useRoom.subscribe((s, p) => {
       if (s.entered && !p.entered) {
+        // a tall screen sees a lot of floor at the desk: look a little higher, at the view
+        homeFacing.copy(FORWARD);
+        if (narrow()) homeFacing.set(0, 0.04, -1).normalize();
         const start = pageFromHash();
         flyTo("home", {
           dur: 2.8, soft: true,
@@ -173,6 +222,7 @@ export default function CameraRig() {
         });
       } else if (s.page !== p.page && s.entered) flyTo(s.page, { prev: p.page });
     });
+    look.turn = (a) => { if (useRoom.getState().page === "home") turn.current += a; };
     return unsub;
     // flyTo reads everything through refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,6 +231,7 @@ export default function CameraRig() {
   // a resize re-frames the page in one step
   useEffect(() => {
     fovRef.current = lensFov(size.width / size.height);
+    wideRef.current = wideFov(size.width / size.height);
     rig.fov = fovRef.current;
     rig.aspect = size.width / size.height;
     rig.updateProjectionMatrix();
@@ -194,9 +245,13 @@ export default function CameraRig() {
     if (process.env.NODE_ENV !== "production") (window as unknown as Record<string, unknown>).__rig = { rig, controls, view, frame, flyTo, gl };
   });
 
+  const drift = useMemo(() => V(), []);
+  const aim = useMemo(() => V(), []);
   useFrame((state, delta) => {
     const dt = Math.min(delta, 1 / 20);
     const T = state.clock.elapsedTime;
+    const page = useRoom.getState().page;
+    const atHome = page === "home" && !fly.current && useRoom.getState().entered;
     const f = fly.current;
     if (f) {
       // on the wall clock, so a slow frame rate doesn't slow the flight down
@@ -217,18 +272,26 @@ export default function CameraRig() {
         f.land?.();
       }
     }
+    // the arrow keys at home: turn the head about the eye, easing out
+    if (atHome && turn.current) {
+      const a = Math.abs(turn.current) < 0.002 || reduce ? turn.current : turn.current * Math.min(1, dt * 7);
+      turn.current -= a;
+      controls.target.sub(rig.position).applyAxisAngle(UP, a).add(rig.position);
+    } else if (!atHome) turn.current = 0;
     controls.update();
+    if (atHome) homeFacing.copy(controls.target).sub(rig.position).normalize();
 
-    // the rendered view
+    // the rendered view: a slow handheld drift, which at home moves the eye and what it looks at together
     view.position.copy(rig.position);
-    keepInRoom(view.position, controls.target);
-    const page = useRoom.getState().page;
+    aim.copy(controls.target);
     if (!reduce) {
       const k = page === "online" || page === "about" ? 0.35 : 1;
-      view.position.x += Math.sin(T * 0.23) * 0.005 * k;
-      view.position.y += Math.sin(T * 0.31 + 1) * 0.0035 * k;
+      drift.set(Math.sin(T * 0.23) * 0.005 * k, Math.sin(T * 0.31 + 1) * 0.0035 * k, 0);
+      view.position.add(drift);
+      if (page === "home" || page === "window") aim.add(drift);
     }
-    view.lookAt(controls.target);
+    keepInRoom(view.position, aim);
+    view.lookAt(aim);
 
     // slide the picture so the object sits in the space beside (or above) the card
     const { width: W, height: H } = sizeRef.current;
@@ -243,7 +306,10 @@ export default function CameraRig() {
     shift.current.y += (wy - shift.current.y) * k;
     if (Math.abs(shift.current.x) + Math.abs(shift.current.y) > 0.5) view.setViewOffset(W, H, shift.current.x, shift.current.y, W, H);
     else if (view.view) view.clearViewOffset();
-    view.fov = fovRef.current;
+    // the lens widens at home and at the window, and narrows again on the way to a station
+    const want = page === "home" || page === "window" ? wideRef.current : fovRef.current;
+    curFov.current = reduce ? want : curFov.current + (want - curFov.current) * Math.min(1, dt * 2.4);
+    view.fov = curFov.current;
     view.updateProjectionMatrix();
   });
 

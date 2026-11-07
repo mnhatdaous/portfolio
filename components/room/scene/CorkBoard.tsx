@@ -143,7 +143,7 @@ export default function CorkBoard() {
 
   const m = useMemo(() => ({
     cork: new THREE.MeshStandardMaterial({ map: corkTexture(), roughness: 0.95 }),
-    frame: new THREE.MeshStandardMaterial({ map: woodTexture(12, "#5c3a22", [2, 1]), roughness: 0.5 }),
+    frame: new THREE.MeshStandardMaterial({ map: woodTexture(12, "#b98a58", [2, 1]), roughness: 0.5 }),
     notes: tex.notes.map((t) => new THREE.MeshStandardMaterial({ map: t.texture, roughness: 0.85 })),
     title: new THREE.MeshStandardMaterial({ map: tex.title.texture, roughness: 0.9 }),
     polaroid: new THREE.MeshStandardMaterial({ map: tex.polaroid.texture, roughness: 0.6 }),
@@ -197,7 +197,7 @@ export default function CorkBoard() {
   });
 
   return (
-    <group ref={ref} position={[ROOM.x0 + 0.02, 1.5, 0.85]} rotation-y={Math.PI / 2}>
+    <group ref={ref} position={[ROOM.x0 + 0.02, 1.5, 1.3]} rotation-y={Math.PI / 2}>
       <group {...clickable("CORK BOARD · WORK", () => useRoom.getState().go("work"))}>
         <mesh position={[0, 0, -0.005]} castShadow receiveShadow material={m.frame}><boxGeometry args={[1.14, 0.79, 0.03]} /></mesh>
         <mesh position={[0, 0, 0.0105]} receiveShadow material={m.cork}><planeGeometry args={[1.08, 0.73]} /></mesh>

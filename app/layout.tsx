@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: { title: profile.name, description: profile.dek, type: "website" },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#07080c" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#dde7ee" };
 
 // Runs before the page paints. It picks the 3D room or the plain page, so neither flashes before the other:
 // - no WebGL 2, or a software renderer (every core goes to drawing): the plain page, with a way into the room

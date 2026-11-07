@@ -9,7 +9,7 @@ import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, roundRect, wrap } from "../lib/textures";
 import { useRoom } from "../store";
 import { DESK_Y } from "./Desk";
-import { saigonTime } from "./Laptop";
+import { saigonTime } from "./Computer";
 
 const PW = 540, PH = 1170;
 type Hit = { x: number; y: number; w: number; h: number; href: string };
@@ -185,7 +185,7 @@ export default function Phone() {
   };
 
   return (
-    <group ref={ref} position={[0.66, DESK_Y, -0.13]} rotation-y={-0.32} {...clickable("PHONE · ONLINE", () => useRoom.getState().go("online"))}>
+    <group ref={ref} position={[0.6, DESK_Y, -2.0]} rotation-y={-0.22} {...clickable("PHONE · ONLINE", () => useRoom.getState().go("online"))}>
       {/* a folding stand */}
       <mesh position={[0, 0.004, 0.005]} castShadow receiveShadow material={m.stand}><boxGeometry args={[0.07, 0.008, 0.08]} /></mesh>
       <mesh position={[0, 0.045, -0.025]} rotation-x={-0.35} castShadow material={m.stand}><boxGeometry args={[0.06, 0.09, 0.006]} /></mesh>

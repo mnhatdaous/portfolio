@@ -19,22 +19,15 @@ export type StationDef = {
 };
 
 export const STATIONS: Record<Page, StationDef> = {
-  // the desk under the window, the window and a little of the walls either side
-  home: {
-    dir: [-0.1, 0.2, 1],
-    fit: 1.0,
-    fitNarrow: 0.8,
-    spread: 0.5,
-    box: new THREE.Box3(new THREE.Vector3(-0.85, 0.72, -0.6), new THREE.Vector3(1.25, 2.05, 0.15)),
-    card: false,
-  },
-  about: { dir: [0.02, 0.5, 1], fit: 1.3, spread: 0.32, card: true },
-  online: { dir: [-0.25, 0.32, 1], fit: 1.12, spread: 0.32, card: true },
-  work: { dir: [1, 0.06, 0.1], fit: 1.04, spread: 0.3, card: true },
-  // a little from the side, so the desk chair isn't between the camera and the lower shelves
-  stack: { dir: [-1, 0.07, 0.38], fit: 1.04, spread: 0.3, card: true },
+  // the middle of the room, free to turn all the way round (see homeFrame in CameraRig)
+  home: { dir: [0, 0, 1], fit: 1, spread: Math.PI, card: false },
+  about: { dir: [0, 0.2, 1], fit: 1.22, spread: 0.32, card: true },
+  online: { dir: [-0.2, 0.36, 1], fit: 1.15, spread: 0.32, card: true },
+  work: { dir: [1, 0.06, 0.06], fit: 1.04, spread: 0.3, card: true },
+  // a little from the front, so the shelves on the back wall stay out of the picture
+  stack: { dir: [-1, 0.07, -0.2], fit: 1.04, spread: 0.3, card: true },
   // looking out: the camera stands at the glass and turns about a point on it (see windowFrame)
-  window: { dir: [0, 0.16, 1], fit: 1, spread: 0.55, card: false },
+  window: { dir: [0, 0.16, 1], fit: 1, spread: 0.6, card: false },
 };
 
 const objects = new Map<Page, THREE.Object3D>();
