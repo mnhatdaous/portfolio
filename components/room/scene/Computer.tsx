@@ -146,33 +146,48 @@ export default function Computer() {
 
   const screen = useMemo(() => canvasTexture(SW, SH), []);
   const m = useMemo(() => {
-    const keys = canvasTexture(512, 176, (ctx, w, h) => {
-      ctx.fillStyle = "#c9ccd2";
+    // a mechanical keyboard from above: cream keycaps on a graphite case, the edge keys grey, Esc and Enter in orange
+    const keys = canvasTexture(640, 220, (ctx, w, h) => {
+      ctx.fillStyle = "#2a2c30";
       ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = "#f5f5f7";
-      const kw = 31, gap = 4.6;
+      const kw = 38, gap = 4.5, cap = (x: number, y: number, kw2: number, c: string) => {
+        ctx.fillStyle = "rgba(0,0,0,.35)";
+        roundRect(ctx, x + 1, y + 3, kw2, 34, 6); ctx.fill();
+        ctx.fillStyle = c;
+        roundRect(ctx, x, y, kw2, 33, 6); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,.18)";
+        roundRect(ctx, x + 4, y + 3, kw2 - 8, 12, 4); ctx.fill();
+      };
       [14, 14, 13, 12].forEach((n, r) => {
-        const y = 8 + r * 33, x0 = (w - (n * kw + (n - 1) * gap)) / 2;
-        for (let i = 0; i < n; i++) { roundRect(ctx, x0 + i * (kw + gap), y, kw, 27, 5); ctx.fill(); }
+        const y = 10 + r * 41, x0 = (w - (n * kw + (n - 1) * gap)) / 2;
+        for (let i = 0; i < n; i++) {
+          const edge = i === 0 || i === n - 1;
+          cap(x0 + i * (kw + gap), y, kw, r === 0 && i === 0 ? "#d9773b" : r === 2 && i === n - 1 ? "#d9773b" : edge ? "#9a9ca2" : "#ece6d8");
+        }
       });
-      const y = 8 + 4 * 33;
-      for (let i = 0; i < 3; i++) { roundRect(ctx, 22 + i * (kw + gap), y, kw, 27, 5); ctx.fill(); roundRect(ctx, w - 22 - kw - i * (kw + gap), y, kw, 27, 5); ctx.fill(); }
-      roundRect(ctx, 22 + 3 * (kw + gap), y, w - 44 - 6 * (kw + gap) - gap, 27, 5);
-      ctx.fill();
+      const y = 10 + 4 * 41;
+      for (let i = 0; i < 3; i++) { cap(26 + i * (kw + gap), y, kw, "#9a9ca2"); cap(w - 26 - kw - i * (kw + gap), y, kw, "#9a9ca2"); }
+      cap(26 + 3 * (kw + gap), y, w - 52 - 6 * (kw + gap) - gap, "#ece6d8");
     }).texture;
     const scr = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: true });
     scr.color.setScalar(1.05);
     return {
-      alu: new THREE.MeshStandardMaterial({ color: "#d6d8dc", roughness: 0.32, metalness: 0.6 }),
-      keys: new THREE.MeshStandardMaterial({ map: keys, roughness: 0.55 }),
+      graphite: new THREE.MeshStandardMaterial({ color: "#34373c", roughness: 0.35, metalness: 0.65 }),
+      keys: new THREE.MeshStandardMaterial({ map: keys, roughness: 0.5 }),
       glass: new THREE.MeshStandardMaterial({ color: "#0b0c0f", roughness: 0.12 }),
-      mouse: new THREE.MeshStandardMaterial({ color: "#f3f3f5", roughness: 0.3 }),
+      mouse: new THREE.MeshStandardMaterial({ color: "#2e3035", roughness: 0.35, metalness: 0.3 }),
+      mat: new THREE.MeshPhysicalMaterial({ color: "#7a4528", roughness: 0.55, clearcoat: 0.25, clearcoatRoughness: 0.5 }),
+      speaker: new THREE.MeshStandardMaterial({ color: "#2b2d31", roughness: 0.55, metalness: 0.2 }),
+      cone: new THREE.MeshStandardMaterial({ color: "#4a4d53", roughness: 0.7 }),
+      ring: new THREE.MeshStandardMaterial({ color: "#a9adb4", roughness: 0.25, metalness: 0.9 }),
       screen: scr,
     };
   }, [screen]);
   const geo = useMemo(() => ({
-    body: new RoundedBoxGeometry(0.64, 0.47, 0.022, 3, 0.008),
-    keyboard: new RoundedBoxGeometry(0.29, 0.009, 0.105, 2, 0.004),
+    body: new RoundedBoxGeometry(0.8, 0.51, 0.026, 3, 0.012),
+    keyboard: new RoundedBoxGeometry(0.36, 0.028, 0.125, 3, 0.009),
+    mat: new RoundedBoxGeometry(0.9, 0.004, 0.36, 2, 0.0019),
+    speaker: new RoundedBoxGeometry(0.1, 0.16, 0.12, 3, 0.012),
   }), []);
 
   const st = useRef({ mode: "", key: "", openedAt: 0, ready: false });
@@ -200,21 +215,32 @@ export default function Computer() {
   const props = clickable("COMPUTER · ABOUT", () => useRoom.getState().go("about"));
   return (
     <group>
-      {/* the screen on its stand: what the About page frames */}
-      <group ref={ref} position={[0, DESK_Y, -2.06]} {...props}>
-        <mesh position={[0, 0.0035, -0.01]} castShadow receiveShadow material={m.alu}><primitive object={soft(0.19, 0.007, 0.16)} attach="geometry" /></mesh>
-        <mesh position={[0, 0.13, -0.075]} rotation-x={0.18} castShadow material={m.alu}><primitive object={soft(0.15, 0.26, 0.012)} attach="geometry" /></mesh>
-        <group position={[0, 0.345, -0.03]} rotation-x={-0.04}>
-          <mesh geometry={geo.body} castShadow receiveShadow material={m.alu} />
-          <mesh position={[0, 0.03, 0.0112]} material={m.glass}><planeGeometry args={[0.624, 0.392]} /></mesh>
-          <mesh position={[0, 0.03, 0.0116]} material={m.screen}><planeGeometry args={[0.6, 0.375]} /></mesh>
+      {/* a 32-inch display on its stand: what the About page frames */}
+      <group ref={ref} position={[0, DESK_Y, -2.1]} {...props}>
+        <mesh position={[0, 0.006, 0]} castShadow receiveShadow material={m.graphite}><primitive object={soft(0.26, 0.012, 0.2)} attach="geometry" /></mesh>
+        <mesh position={[0, 0.17, -0.07]} rotation-x={0.16} castShadow material={m.graphite}><primitive object={soft(0.16, 0.34, 0.016)} attach="geometry" /></mesh>
+        <group position={[0, 0.42, -0.035]} rotation-x={-0.05}>
+          <mesh geometry={geo.body} castShadow receiveShadow material={m.graphite} />
+          <mesh position={[0, 0, 0.0132]} material={m.glass}><planeGeometry args={[0.79, 0.5]} /></mesh>
+          <mesh position={[0, 0, 0.0136]} material={m.screen}><planeGeometry args={[0.77, 0.48125]} /></mesh>
         </group>
       </group>
+      {/* a leather mat, the keyboard and the mouse */}
+      <mesh geometry={geo.mat} position={[0.05, DESK_Y + 0.002, -1.8]} receiveShadow material={m.mat} />
       <group {...props}>
-        <mesh geometry={geo.keyboard} position={[-0.02, DESK_Y + 0.0045, -1.81]} castShadow receiveShadow material={m.alu} />
-        <mesh position={[-0.02, DESK_Y + 0.0092, -1.81]} rotation-x={-Math.PI / 2} material={m.keys}><planeGeometry args={[0.278, 0.096]} /></mesh>
-        <mesh position={[0.25, DESK_Y + 0.009, -1.8]} scale={[0.032, 0.012, 0.055]} castShadow material={m.mouse}><sphereGeometry args={[1, 20, 12]} /></mesh>
+        <mesh geometry={geo.keyboard} position={[-0.05, DESK_Y + 0.018, -1.79]} rotation-x={0.04} castShadow receiveShadow material={m.graphite} />
+        <mesh position={[-0.05, DESK_Y + 0.0325, -1.79]} rotation-x={-Math.PI / 2 + 0.04} material={m.keys}><planeGeometry args={[0.35, 0.117]} /></mesh>
+        <mesh position={[0.27, DESK_Y + 0.016, -1.79]} scale={[0.034, 0.018, 0.06]} castShadow material={m.mouse}><sphereGeometry args={[1, 24, 14]} /></mesh>
       </group>
+      {/* a pair of desk speakers either side, turned in a little */}
+      {[-1, 1].map((sx) => (
+        <group key={sx} position={[sx * 0.48, DESK_Y, -2.2]} rotation-y={-sx * 0.2}>
+          <mesh geometry={geo.speaker} position={[0, 0.08, 0]} castShadow receiveShadow material={m.speaker} />
+          <mesh position={[0, 0.06, 0.0605]} rotation-x={Math.PI / 2} material={m.ring}><cylinderGeometry args={[0.034, 0.034, 0.004, 28]} /></mesh>
+          <mesh position={[0, 0.06, 0.063]} rotation-x={Math.PI / 2} material={m.cone}><cylinderGeometry args={[0.028, 0.02, 0.004, 28]} /></mesh>
+          <mesh position={[0, 0.125, 0.0605]} rotation-x={Math.PI / 2} material={m.ring}><cylinderGeometry args={[0.013, 0.013, 0.004, 20]} /></mesh>
+        </group>
+      ))}
     </group>
   );
 }

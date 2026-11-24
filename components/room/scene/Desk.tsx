@@ -95,7 +95,7 @@ function Notebook() {
     pen: new THREE.MeshStandardMaterial({ color: "#20252b", roughness: 0.3, metalness: 0.3 }),
   }), []);
   return (
-    <group position={[-0.36, DESK_Y, -1.8]} rotation-y={0.18}>
+    <group position={[-0.62, DESK_Y, -1.72]} rotation-y={0.18}>
       <mesh position={[0, 0.002, 0]} receiveShadow material={m.cover}><primitive object={soft(0.31, 0.004, 0.215)} attach="geometry" /></mesh>
       {[-1, 1].map((s) => (
         <mesh key={s} position={[s * 0.076, 0.007, 0]} rotation-z={-s * 0.035} receiveShadow material={m.pages}><primitive object={soft(0.148, 0.006, 0.205)} attach="geometry" /></mesh>

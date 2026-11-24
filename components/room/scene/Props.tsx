@@ -15,7 +15,7 @@ import { ROOM } from "./Room";
 // The things that only do something small when clicked, and the plants. They're what make the room feel lived in.
 
 // ---------------------------------------------------------------- a mug of coffee, steaming
-const MUG = new THREE.Vector3(0.42, DESK_Y, -2.08);
+const MUG = new THREE.Vector3(0.58, DESK_Y, -1.76);
 
 export function Mug() {
   const st = useRef({ level: 1 });
@@ -435,73 +435,56 @@ export function DustMotes() {
   return <points geometry={geo} material={mat} />;
 }
 
-// ---------------------------------------------------------------- lịch bloc: the tear-off calendar
+// ---------------------------------------------------------------- a day-per-page pad on a black clip; tear a day off
 const day = (offset: number) => new Date(Date.now() + offset * 86400000);
+const PAD = { w: 0.22, h: 0.27 };
+
 function drawDay(ctx: CanvasRenderingContext2D, offset: number) {
   const W = ctx.canvas.width, H = ctx.canvas.height, d = day(offset), tz = profile.timeZone;
-  const num = new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "numeric" }).format(d);
-  const month = new Intl.DateTimeFormat("en-GB", { timeZone: tz, month: "numeric" }).format(d);
-  const year = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric" }).format(d);
-  const wd = new Intl.DateTimeFormat("vi-VN", { timeZone: tz, weekday: "long" }).format(d).toLocaleUpperCase("vi");
-  const sunday = new Intl.DateTimeFormat("en-GB", { timeZone: tz, weekday: "short" }).format(d) === "Sun";
-  const red = "#c4161c", ink = sunday ? red : "#1f3f8a";
-  ctx.fillStyle = "#fbf8f1";
+  const part = (o: Intl.DateTimeFormatOptions, locale = "en-GB") => new Intl.DateTimeFormat(locale, { timeZone: tz, ...o }).format(d);
+  const sunday = part({ weekday: "short" }) === "Sun";
+  const ink = "#22262b", accent = "#c0632b", muted = "rgba(34,38,43,.5)";
+  ctx.fillStyle = "#f8f6f1";
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = red;
-  ctx.fillRect(0, 0, W, 54);
-  ctx.fillStyle = "#fff4d6";
-  ctx.font = `700 28px ${FONT.display()}`;
-  ctx.textAlign = "center";
-  ctx.fillText(`THÁNG ${month} · ${year}`, W / 2, 38);
+  ctx.textAlign = "left";
+  // the month and year small at the top, a dot of colour opposite
+  ctx.fillStyle = muted;
+  ctx.font = `500 22px ${FONT.mono()}`;
+  ctx.fillText(`${part({ month: "2-digit" })} · ${part({ year: "numeric" })}`, 26, 56);
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(W - 34, 49, 7, 0, Math.PI * 2);
+  ctx.fill();
+  // the day, big; Sundays in the accent
+  ctx.fillStyle = sunday ? accent : ink;
+  ctx.font = `800 170px ${FONT.display()}`;
+  ctx.fillText(part({ day: "2-digit" }), 18, 236);
+  // a hairline, the weekday, the city
+  ctx.fillStyle = "rgba(34,38,43,.14)";
+  ctx.fillRect(26, 268, W - 52, 2);
   ctx.fillStyle = ink;
-  ctx.font = `800 190px ${FONT.display()}`;
-  ctx.fillText(num, W / 2, 238);
-  ctx.font = `700 34px ${FONT.display()}`;
-  ctx.fillText(wd, W / 2, 292);
-  ctx.fillStyle = "rgba(30,30,40,.55)";
+  ctx.font = `700 25px ${FONT.mono()}`;
+  ctx.fillText(part({ weekday: "long" }, "vi-VN").toLocaleUpperCase("vi"), 26, 310);
+  ctx.fillStyle = muted;
   ctx.font = `400 20px ${FONT.mono()}`;
-  ctx.fillText("Sài Gòn", W / 2, 330);
-  ctx.textAlign = "left";
-}
-
-function drawBoard(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, "#b3171d");
-  g.addColorStop(1, "#7c0d12");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "#e3b04b";
-  ctx.lineWidth = 6;
-  ctx.strokeRect(12, 12, w - 24, h - 24);
-  ctx.lineWidth = 2;
-  ctx.strokeRect(22, 22, w - 44, h - 44);
-  ctx.fillStyle = "#f1c25a";
-  ctx.textAlign = "center";
-  ctx.font = `800 64px ${FONT.display()}`;
-  ctx.fillText("2026", w / 2, 92);
-  ctx.font = `700 26px ${FONT.display()}`;
-  ctx.fillText("BÍNH NGỌ", w / 2, 128);
-  ctx.textAlign = "left";
+  ctx.fillText("Sài Gòn", 26, H - 26);
 }
 
 export function Calendar() {
-  const pad = useMemo(() => canvasTexture(300, 350, (ctx) => drawDay(ctx, 0)), []);
-  const torn = useMemo(() => canvasTexture(300, 350, (ctx) => drawDay(ctx, 0)), []);
-  const board = useMemo(() => canvasTexture(300, 440, drawBoard), []);
+  const pad = useMemo(() => canvasTexture(300, 368, (ctx) => drawDay(ctx, 0)), []);
+  const torn = useMemo(() => canvasTexture(300, 368, (ctx) => drawDay(ctx, 0)), []);
   const st = useRef({ offset: 0, tearT: -1 });
   const page = useRef<THREE.Group>(null);
   useEffect(() => {
-    fontsReady().then(() => {
-      drawDay(pad.ctx, st.current.offset); pad.texture.needsUpdate = true;
-      drawBoard(board.ctx, 300, 440); board.texture.needsUpdate = true;
-    });
-  }, [pad, board]);
+    fontsReady().then(() => { drawDay(pad.ctx, st.current.offset); pad.texture.needsUpdate = true; });
+  }, [pad]);
   const m = useMemo(() => ({
-    board: new THREE.MeshStandardMaterial({ map: board.texture, roughness: 0.6 }),
     pad: new THREE.MeshStandardMaterial({ map: pad.texture, roughness: 0.85 }),
     torn: new THREE.MeshStandardMaterial({ map: torn.texture, roughness: 0.85, transparent: true, side: THREE.DoubleSide }),
-    edge: new THREE.MeshStandardMaterial({ color: "#efe9dc", roughness: 0.9 }),
-  }), [board, pad, torn]);
+    edge: new THREE.MeshStandardMaterial({ color: "#ebe8e1", roughness: 0.9 }),
+    clip: new THREE.MeshStandardMaterial({ color: "#1d1f22", roughness: 0.35, metalness: 0.5 }),
+    wire: new THREE.MeshStandardMaterial({ color: "#c9ccd1", roughness: 0.2, metalness: 0.95 }),
+  }), [pad, torn]);
 
   useFrame((_, dt) => {
     const s = st.current, g = page.current;
@@ -511,8 +494,8 @@ export function Calendar() {
     const k = Math.min(1, s.tearT / 1.1);
     g.visible = k < 1;
     g.rotation.x = k * 1.7;
-    g.position.y = 0.0425 - k * k * 0.5;
-    g.position.z = 0.012 + k * 0.12;
+    g.position.y = PAD.h / 2 - k * k * 0.5;
+    g.position.z = 0.014 + k * 0.12;
     m.torn.opacity = 1 - k * k;
     if (k >= 1) s.tearT = -1;
   });
@@ -526,13 +509,19 @@ export function Calendar() {
   };
 
   return (
-    <group position={[0.62, 1.6, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable("LỊCH BLOC · TEAR OFF A DAY", tear)}>
-      <mesh material={m.board} castShadow><planeGeometry args={[0.3, 0.44]} /></mesh>
-      <mesh position={[0, -0.075, 0.011]} castShadow material={m.edge}><primitive object={soft(0.2, 0.235, 0.02)} attach="geometry" /></mesh>
-      <mesh position={[0, -0.075, 0.0215]} material={m.pad}><planeGeometry args={[0.2, 0.235]} /></mesh>
+    <group position={[0.62, 1.55, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable("DAY PAD · TEAR OFF A DAY", tear)}>
+      {/* the stack of days, and today on top */}
+      <mesh position={[0, 0, 0.006]} castShadow material={m.edge}><primitive object={soft(PAD.w, PAD.h, 0.012, 0.004)} attach="geometry" /></mesh>
+      <mesh position={[0, 0, 0.0125]} material={m.pad}><planeGeometry args={[PAD.w, PAD.h]} /></mesh>
+      {/* a binder clip across the top, its wire handles up to a nail */}
+      <mesh position={[0, PAD.h / 2 - 0.006, 0.012]} castShadow material={m.clip}><primitive object={soft(0.075, 0.03, 0.026, 0.006)} attach="geometry" /></mesh>
+      {[-1, 1].map((sx) => (
+        <mesh key={sx} position={[sx * 0.018, PAD.h / 2 + 0.024, 0.016]} rotation-z={-sx * 0.35} material={m.wire}><cylinderGeometry args={[0.0018, 0.0018, 0.05, 6]} /></mesh>
+      ))}
+      <mesh position={[0, PAD.h / 2 + 0.046, 0.006]} rotation-x={Math.PI / 2} material={m.wire}><cylinderGeometry args={[0.004, 0.004, 0.014, 10]} /></mesh>
       {/* the page being torn off turns about its top edge */}
-      <group ref={page} position={[0, 0.0425, 0.023]}>
-        <mesh position={[0, -0.1175, 0]} material={m.torn}><planeGeometry args={[0.2, 0.235]} /></mesh>
+      <group ref={page} position={[0, PAD.h / 2, 0.014]}>
+        <mesh position={[0, -PAD.h / 2, 0]} material={m.torn}><planeGeometry args={[PAD.w, PAD.h]} /></mesh>
       </group>
     </group>
   );
