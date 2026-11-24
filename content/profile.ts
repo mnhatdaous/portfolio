@@ -51,7 +51,7 @@ export const profile = {
     "Software engineer with 6+ years of experience building web applications, backend services and cloud-based systems.",
     "I work across frontend architecture, backend development, payment integrations, database migrations and cloud infrastructure, mostly in TypeScript, Python, Go and Rust.",
     "Two years of frontend leadership: architecture decisions, code reviews and mentoring. I build on Clean Architecture and microservices, with a focus on maintainable software and reliable delivery.",
-    "AI-assisted development is part of my everyday engineering workflow: I use Claude Code across design, implementation and testing to ship faster while keeping a high bar for quality.",
+    "I use AI agents to automate large parts of my engineering workflow, from design and implementation to testing, with Claude Code at the core. It lets me ship faster while keeping a high bar for quality.",
   ],
   education: {
     school: "National University of Science, Ho Chi Minh City",
@@ -234,7 +234,7 @@ export const skillGroups: SkillGroup[] = [
   },
   {
     label: "AI tools",
-    skills: [{ name: "Claude Code" }, { name: "Cursor" }],
+    skills: [{ name: "Claude Code" }],
   },
 ];
 
