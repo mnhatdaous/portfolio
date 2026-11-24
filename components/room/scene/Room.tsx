@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { BACK_LABEL, clickable, clickOutside, solid } from "../lib/interact";
 import { planksTexture, plasterTexture, rugTexture, woodTexture } from "../lib/textures";
+import { curvedSlat, soft } from "../lib/shapes";
 import { useRoom } from "../store";
 
 // The study: one room on a hill above the lake. The big window over the desk runs corner to corner and the side
@@ -98,7 +99,7 @@ export default function Room() {
       ))}
       {[...LINING, ...SKIRTING].map((b, i) => (
         <mesh key={i} position={b.p} castShadow receiveShadow material={m.oak}>
-          <boxGeometry args={b.s} />
+          <primitive object={soft(...b.s)} attach="geometry" />
         </mesh>
       ))}
 
@@ -129,11 +130,11 @@ function Door({ m }: { m: { oak: THREE.Material; door: THREE.Material; brass: TH
   const x = 1.4, w = 0.86, h = 2.05, z = ROOM.z1;
   return (
     <group>
-      <mesh position={[x, h / 2, z - 0.014]} castShadow receiveShadow material={m.door}><boxGeometry args={[w, h, 0.03]} /></mesh>
+      <mesh position={[x, h / 2, z - 0.014]} castShadow receiveShadow material={m.door}><primitive object={soft(w, h, 0.03)} attach="geometry" /></mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[x + s * (w / 2 + 0.03), h / 2 + 0.03, z - 0.012]} castShadow material={m.oak}><boxGeometry args={[0.06, h + 0.06, 0.026]} /></mesh>
+        <mesh key={s} position={[x + s * (w / 2 + 0.03), h / 2 + 0.03, z - 0.012]} castShadow material={m.oak}><primitive object={soft(0.06, h + 0.06, 0.026)} attach="geometry" /></mesh>
       ))}
-      <mesh position={[x, h + 0.06, z - 0.012]} castShadow material={m.oak}><boxGeometry args={[w + 0.12, 0.06, 0.026]} /></mesh>
+      <mesh position={[x, h + 0.06, z - 0.012]} castShadow material={m.oak}><primitive object={soft(w + 0.12, 0.06, 0.026)} attach="geometry" /></mesh>
       <mesh position={[x - w / 2 + 0.08, 1.02, z - 0.045]} rotation-z={Math.PI / 2} castShadow material={m.brass}>
         <cylinderGeometry args={[0.009, 0.009, 0.12, 12]} />
       </mesh>
@@ -144,21 +145,24 @@ function Door({ m }: { m: { oak: THREE.Material; door: THREE.Material; brass: TH
   );
 }
 
-/** a light oak chair at the desk */
+/** a light oak chair at the desk, its back a bent slat */
 function Chair({ material }: { material: THREE.Material }) {
   const legs: [number, number][] = [[-0.19, -0.18], [0.19, -0.18], [-0.19, 0.18], [0.19, 0.18]];
+  const back = useMemo(() => curvedSlat(0.42, 0.02, 1.05, 0.14), []);
   return (
     <group position={[0.08, 0, -1.25]} rotation-y={0.12}>
-      <mesh position={[0, 0.46, 0]} castShadow receiveShadow material={material}><boxGeometry args={[0.44, 0.03, 0.42]} /></mesh>
+      <mesh position={[0, 0.46, 0]} castShadow receiveShadow material={material}><primitive object={soft(0.44, 0.03, 0.42)} attach="geometry" /></mesh>
       {legs.map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x, 0.23, z]} rotation-x={z * 0.12} castShadow material={material}>
           <cylinderGeometry args={[0.016, 0.012, 0.46, 10]} />
         </mesh>
       ))}
       {[-0.19, 0.19].map((x) => (
-        <mesh key={x} position={[x, 0.7, 0.2]} rotation-x={-0.1} castShadow material={material}><cylinderGeometry args={[0.015, 0.015, 0.48, 10]} /></mesh>
+        <mesh key={x} position={[x, 0.7, 0.19]} rotation-x={-0.1} castShadow material={material}><cylinderGeometry args={[0.015, 0.015, 0.48, 10]} /></mesh>
       ))}
-      <mesh position={[0, 0.84, 0.215]} rotation-x={-0.1} castShadow material={material}><boxGeometry args={[0.44, 0.13, 0.022]} /></mesh>
+      <group position={[0, 0.84, 0.215]} rotation-x={-0.1}>
+        <mesh geometry={back} position={[0, 0, -0.43]} castShadow receiveShadow material={material} />
+      </group>
     </group>
   );
 }

@@ -6,6 +6,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { profile } from "@/content/profile";
 import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
+import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { saigonTime } from "./Computer";
 import { DESK_Y } from "./Desk";
@@ -527,7 +528,7 @@ export function Calendar() {
   return (
     <group position={[0.62, 1.6, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable("LỊCH BLOC · TEAR OFF A DAY", tear)}>
       <mesh material={m.board} castShadow><planeGeometry args={[0.3, 0.44]} /></mesh>
-      <mesh position={[0, -0.075, 0.011]} castShadow material={m.edge}><boxGeometry args={[0.2, 0.235, 0.02]} /></mesh>
+      <mesh position={[0, -0.075, 0.011]} castShadow material={m.edge}><primitive object={soft(0.2, 0.235, 0.02)} attach="geometry" /></mesh>
       <mesh position={[0, -0.075, 0.0215]} material={m.pad}><planeGeometry args={[0.2, 0.235]} /></mesh>
       {/* the page being torn off turns about its top edge */}
       <group ref={page} position={[0, 0.0425, 0.023]}>

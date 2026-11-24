@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { solid } from "../lib/interact";
 import { rng, woodTexture } from "../lib/textures";
+import { soft } from "../lib/shapes";
 import { OAK, ROOM } from "./Room";
 
 export const DESK_Y = 0.74;
@@ -36,7 +37,7 @@ function Books({ seed, x, z, n, rot = 0, children }: { seed: number; x: number; 
     <group position={[x, DESK_Y, z]} rotation-y={rot}>
       {books.map((b, i) => (
         <mesh key={i} position={[0, b.y, 0]} rotation-y={b.rot} castShadow receiveShadow material={mats[i]}>
-          <boxGeometry args={[b.w, b.h, b.d]} />
+          <primitive object={soft(b.w, b.h, b.d)} attach="geometry" />
         </mesh>
       ))}
       {children?.(top)}
@@ -59,7 +60,7 @@ function Glasses() {
       ))}
       <mesh position={[0, 0.016, -0.002]} rotation-x={-Math.PI / 2 + 0.25} material={m.frame}><torusGeometry args={[0.008, 0.002, 6, 12, Math.PI]} /></mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * 0.05, 0.004, -0.045]} rotation-y={s * 0.08} material={m.frame}><boxGeometry args={[0.003, 0.003, 0.09]} /></mesh>
+        <mesh key={s} position={[s * 0.05, 0.004, -0.045]} rotation-y={s * 0.08} material={m.frame}><primitive object={soft(0.003, 0.003, 0.09)} attach="geometry" /></mesh>
       ))}
     </group>
   );
@@ -95,9 +96,9 @@ function Notebook() {
   }), []);
   return (
     <group position={[-0.36, DESK_Y, -1.8]} rotation-y={0.18}>
-      <mesh position={[0, 0.002, 0]} receiveShadow material={m.cover}><boxGeometry args={[0.31, 0.004, 0.215]} /></mesh>
+      <mesh position={[0, 0.002, 0]} receiveShadow material={m.cover}><primitive object={soft(0.31, 0.004, 0.215)} attach="geometry" /></mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * 0.076, 0.007, 0]} rotation-z={-s * 0.035} receiveShadow material={m.pages}><boxGeometry args={[0.148, 0.006, 0.205]} /></mesh>
+        <mesh key={s} position={[s * 0.076, 0.007, 0]} rotation-z={-s * 0.035} receiveShadow material={m.pages}><primitive object={soft(0.148, 0.006, 0.205)} attach="geometry" /></mesh>
       ))}
       {/* a few lines of writing */}
       {[0, 1, 2, 3, 4, 5].map((k) => (
@@ -152,19 +153,19 @@ export default function Desk() {
   return (
     <group>
       <mesh position={[(DESK.x0 + DESK.x1) / 2, DESK_Y - 0.02, ZC]} castShadow receiveShadow material={m.top} {...solid}>
-        <boxGeometry args={[w, 0.04, d]} />
+        <primitive object={soft(w, 0.04, d)} attach="geometry" />
       </mesh>
       {/* drawers at the left end, a panel at the right */}
       <group position={[DESK.x0 + 0.26, 0, ZC + 0.015]}>
-        <mesh position={[0, legH / 2, 0]} castShadow receiveShadow material={m.side}><boxGeometry args={[0.48, legH, d - 0.03]} /></mesh>
+        <mesh position={[0, legH / 2, 0]} castShadow receiveShadow material={m.side}><primitive object={soft(0.48, legH, d - 0.03)} attach="geometry" /></mesh>
         {[0, 1, 2].map((k) => (
           <group key={k} position={[0, 0.12 + k * 0.22, (d - 0.03) / 2]}>
-            <mesh position={[0, 0, 0.006]} castShadow material={m.top}><boxGeometry args={[0.45, 0.2, 0.012]} /></mesh>
+            <mesh position={[0, 0, 0.006]} castShadow material={m.top}><primitive object={soft(0.45, 0.2, 0.012)} attach="geometry" /></mesh>
             <mesh position={[0, 0.05, 0.018]} rotation-z={Math.PI / 2} material={m.knob}><cylinderGeometry args={[0.005, 0.005, 0.12, 8]} /></mesh>
           </group>
         ))}
       </group>
-      <mesh position={[DESK.x1 - 0.02, legH / 2, ZC]} castShadow receiveShadow material={m.side}><boxGeometry args={[0.036, legH, d - 0.02]} /></mesh>
+      <mesh position={[DESK.x1 - 0.02, legH / 2, ZC]} castShadow receiveShadow material={m.side}><primitive object={soft(0.036, legH, d - 0.02)} attach="geometry" /></mesh>
 
       <Books seed={3} x={-1.27} z={-2.06} n={5} rot={0.2} />
       <Books seed={9} x={1.04} z={-2.07} n={3} rot={-0.3}>{(top) => <group position={[0, top, 0]}><Glasses /></group>}</Books>

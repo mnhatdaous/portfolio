@@ -7,6 +7,7 @@ import { jobs, profile } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng, roundRect } from "../lib/textures";
+import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { DESK_Y } from "./Desk";
 
@@ -201,8 +202,8 @@ export default function Computer() {
     <group>
       {/* the screen on its stand: what the About page frames */}
       <group ref={ref} position={[0, DESK_Y, -2.06]} {...props}>
-        <mesh position={[0, 0.0035, -0.01]} castShadow receiveShadow material={m.alu}><boxGeometry args={[0.19, 0.007, 0.16]} /></mesh>
-        <mesh position={[0, 0.13, -0.075]} rotation-x={0.18} castShadow material={m.alu}><boxGeometry args={[0.15, 0.26, 0.012]} /></mesh>
+        <mesh position={[0, 0.0035, -0.01]} castShadow receiveShadow material={m.alu}><primitive object={soft(0.19, 0.007, 0.16)} attach="geometry" /></mesh>
+        <mesh position={[0, 0.13, -0.075]} rotation-x={0.18} castShadow material={m.alu}><primitive object={soft(0.15, 0.26, 0.012)} attach="geometry" /></mesh>
         <group position={[0, 0.345, -0.03]} rotation-x={-0.04}>
           <mesh geometry={geo.body} castShadow receiveShadow material={m.alu} />
           <mesh position={[0, 0.03, 0.0112]} material={m.glass}><planeGeometry args={[0.624, 0.392]} /></mesh>

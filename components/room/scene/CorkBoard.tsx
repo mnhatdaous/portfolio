@@ -6,6 +6,7 @@ import { builds, jobs } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
 import { canvasTexture, corkTexture, FONT, fontsReady, rng, woodTexture } from "../lib/textures";
+import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { ROOM } from "./Room";
 
@@ -199,7 +200,7 @@ export default function CorkBoard() {
   return (
     <group ref={ref} position={[ROOM.x0 + 0.02, 1.5, 1.3]} rotation-y={Math.PI / 2}>
       <group {...clickable("CORK BOARD · WORK", () => useRoom.getState().go("work"))}>
-        <mesh position={[0, 0, -0.005]} castShadow receiveShadow material={m.frame}><boxGeometry args={[1.14, 0.79, 0.03]} /></mesh>
+        <mesh position={[0, 0, -0.005]} castShadow receiveShadow material={m.frame}><primitive object={soft(1.14, 0.79, 0.03)} attach="geometry" /></mesh>
         <mesh position={[0, 0, 0.0105]} receiveShadow material={m.cork}><planeGeometry args={[1.08, 0.73]} /></mesh>
         <mesh position={[-0.42, 0.225, 0.013]} rotation-z={0.05} material={m.title}><planeGeometry args={[0.18, 0.12]} /></mesh>
         <mesh position={[0.36, -0.13, 0.013]} rotation-z={-0.07} material={m.polaroid}><planeGeometry args={[0.15, 0.176]} /></mesh>

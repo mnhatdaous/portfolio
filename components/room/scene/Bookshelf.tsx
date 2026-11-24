@@ -2,10 +2,12 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { allSkills } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng, woodTexture } from "../lib/textures";
+import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { Pothos } from "./Props";
 import { OAK, ROOM } from "./Room";
@@ -136,13 +138,13 @@ export default function Bookshelf() {
       <group {...clickable("BOOKSHELF · STACK", () => useRoom.getState().go("stack"))}>
         {[-1, 1].map((s) => (
           <mesh key={s} position={[s * (WIDTH / 2 - 0.0125), top / 2, 0]} castShadow receiveShadow material={m.wood}>
-            <boxGeometry args={[0.025, top, DEPTH]} />
+            <primitive object={soft(0.025, top, DEPTH)} attach="geometry" />
           </mesh>
         ))}
         {BOARDS.map((y) => (
-          <mesh key={y} position={[0, y, 0]} castShadow receiveShadow material={m.wood}><boxGeometry args={[WIDTH - 0.05, 0.025, DEPTH]} /></mesh>
+          <mesh key={y} position={[0, y, 0]} castShadow receiveShadow material={m.wood}><primitive object={soft(WIDTH - 0.05, 0.025, DEPTH)} attach="geometry" /></mesh>
         ))}
-        <mesh position={[0, top / 2, -DEPTH / 2 + 0.005]} receiveShadow material={m.back}><boxGeometry args={[WIDTH - 0.05, top, 0.01]} /></mesh>
+        <mesh position={[0, top / 2, -DEPTH / 2 + 0.005]} receiveShadow material={m.back}><primitive object={soft(WIDTH - 0.05, top, 0.01)} attach="geometry" /></mesh>
       </group>
 
       {books.map((b, k) => {
@@ -164,7 +166,7 @@ export default function Bookshelf() {
             onPointerOver={(e) => { hovered.current = k; props.onPointerOver(e); }}
             onPointerOut={() => { hovered.current = -1; props.onPointerOut(); }}
           >
-            <boxGeometry args={[b.w, b.h, b.d]} />
+            <primitive object={soft(b.w, b.h, b.d)} attach="geometry" />
           </mesh>
         );
       })}
@@ -229,7 +231,7 @@ export function Library() {
         x += w + 0.002 + (lean ? h * 0.25 : 0);
       }
     }
-    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), m.books, list.length);
+    const mesh = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.06), m.books, list.length);
     list.forEach((b, i) => { mesh.setMatrixAt(i, b.m); mesh.setColorAt(i, b.c); });
     mesh.castShadow = mesh.receiveShadow = true;
     return { mesh, gaps };
@@ -238,10 +240,10 @@ export function Library() {
   return (
     <group position={[(LIB.x0 + LIB.x1) / 2, 0, ROOM.z1 - LIB.d / 2]} rotation-y={Math.PI}>
       {[-1, 0, 1].map((s) => (
-        <mesh key={s} position={[s * (W / 2 - 0.0125), LIB.h / 2, 0]} castShadow receiveShadow material={m.wood}><boxGeometry args={[0.025, LIB.h, LIB.d]} /></mesh>
+        <mesh key={s} position={[s * (W / 2 - 0.0125), LIB.h / 2, 0]} castShadow receiveShadow material={m.wood}><primitive object={soft(0.025, LIB.h, LIB.d)} attach="geometry" /></mesh>
       ))}
       {Array.from({ length: LIB.boards }, (_, i) => (
-        <mesh key={i} position={[0, 0.025 + i * step, 0]} castShadow receiveShadow material={m.wood}><boxGeometry args={[W, 0.025, LIB.d]} /></mesh>
+        <mesh key={i} position={[0, 0.025 + i * step, 0]} castShadow receiveShadow material={m.wood}><primitive object={soft(W, 0.025, LIB.d)} attach="geometry" /></mesh>
       ))}
       <primitive object={mesh} />
       {gaps.map((g, i) => (
@@ -249,11 +251,11 @@ export function Library() {
           {g.kind === 0 && <mesh position={[0, 0.09, 0]} castShadow material={m.vase}><cylinderGeometry args={[0.035, 0.05, 0.18, 24]} /></mesh>}
           {g.kind === 1 && (
             <group rotation-y={0.2}>
-              <mesh position={[0, 0.1, -0.04]} rotation-x={-0.12} castShadow material={m.frame}><boxGeometry args={[0.16, 0.2, 0.012]} /></mesh>
+              <mesh position={[0, 0.1, -0.04]} rotation-x={-0.12} castShadow material={m.frame}><primitive object={soft(0.16, 0.2, 0.012)} attach="geometry" /></mesh>
               <mesh position={[0, 0.1, -0.033]} rotation-x={-0.12} material={m.photo}><planeGeometry args={[0.13, 0.17]} /></mesh>
             </group>
           )}
-          {g.kind === 2 && <mesh position={[0, 0.07, 0]} castShadow material={m.box}><boxGeometry args={[0.2, 0.14, 0.2]} /></mesh>}
+          {g.kind === 2 && <mesh position={[0, 0.07, 0]} castShadow material={m.box}><primitive object={soft(0.2, 0.14, 0.2)} attach="geometry" /></mesh>}
           {g.kind === 3 && <mesh position={[0, 0.06, 0]} castShadow material={m.clay}><sphereGeometry args={[0.07, 20, 14]} /></mesh>}
         </group>
       ))}

@@ -7,6 +7,7 @@ import { liveLinks, profile } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, roundRect, wrap } from "../lib/textures";
+import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { DESK_Y } from "./Desk";
 import { saigonTime } from "./Computer";
@@ -187,9 +188,9 @@ export default function Phone() {
   return (
     <group ref={ref} position={[0.6, DESK_Y, -2.0]} rotation-y={-0.22} {...clickable("PHONE · ONLINE", () => useRoom.getState().go("online"))}>
       {/* a folding stand */}
-      <mesh position={[0, 0.004, 0.005]} castShadow receiveShadow material={m.stand}><boxGeometry args={[0.07, 0.008, 0.08]} /></mesh>
-      <mesh position={[0, 0.045, -0.025]} rotation-x={-0.35} castShadow material={m.stand}><boxGeometry args={[0.06, 0.09, 0.006]} /></mesh>
-      <mesh position={[0, 0.014, 0.03]} castShadow material={m.stand}><boxGeometry args={[0.07, 0.012, 0.01]} /></mesh>
+      <mesh position={[0, 0.004, 0.005]} castShadow receiveShadow material={m.stand}><primitive object={soft(0.07, 0.008, 0.08)} attach="geometry" /></mesh>
+      <mesh position={[0, 0.045, -0.025]} rotation-x={-0.35} castShadow material={m.stand}><primitive object={soft(0.06, 0.09, 0.006)} attach="geometry" /></mesh>
+      <mesh position={[0, 0.014, 0.03]} castShadow material={m.stand}><primitive object={soft(0.07, 0.012, 0.01)} attach="geometry" /></mesh>
       <group position={[0, 0.088, -0.006]} rotation-x={-0.36}>
         <mesh geometry={body} castShadow material={m.body} />
         <mesh position={[0, 0, 0.0042]} material={m.screen} onClick={onScreen}><planeGeometry args={[0.068, 0.149]} /></mesh>
