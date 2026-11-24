@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { allSkills, builds, jobs, liveLinks, profile, skillGroups, usedAt, type Build, type Job } from "@/content/profile";
+import { allSkills, builds, jobs, liveLinks, profile, skillGroups, song, usedAt, type Build, type Job } from "@/content/profile";
 import { STATIONS } from "../camera/stations";
 import { sound } from "../lib/audio";
 import { layout, MENU, narrow, useRoom, WORK_ITEMS, type Page } from "../store";
@@ -293,9 +293,15 @@ export default function Hud() {
           <button className="pill frost" onClick={() => go("home")}>← <span className="lbl">Back to the room · Esc</span></button>
         ) : null}
         <span className="spacer" />
-        {page === "home" && <span className="hint frost">Drag to look around. The computer, the board, the bookshelf and the phone open things; the cat likes a pat.</span>}
+        {page === "home" && <span className="hint frost">Drag to look around · open the computer, board, bookshelf or phone · pet the cat</span>}
         {page === "window" && <span className="hint frost">Drag to look around · click or Esc to come back</span>}
         <span className="spacer" />
+        <a className="pill frost" href={song.href} target="_blank" rel="noopener noreferrer" aria-label={`${song.title} by ${song.artist}, on YouTube`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" />
+          </svg>
+          <span className="lbl">{song.title} · {song.artist} ↗</span>
+        </a>
         <button className="pill frost" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 9h4l5-4v14l-5-4H4z" />

@@ -247,6 +247,9 @@ export const links: Link[] = [
 
 export const liveLinks = () => links.filter((l) => l.href);
 
+/** the room's song: linked from the bottom bar, and it opens on YouTube rather than playing here */
+export const song = { title: "Hong Kong", artist: "The Weeknd", href: "https://www.youtube.com/watch?v=hX9S94XsySk" };
+
 /** where a skill was used: its name (or an alias) in a job's tech list, or written in that job's description */
 export function usedAt(skill: Skill): Job[] {
   const names = [skill.name, ...(skill.aliases ?? [])].map((n) => n.toLowerCase());
