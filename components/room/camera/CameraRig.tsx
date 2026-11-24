@@ -19,9 +19,9 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const UP = V(0, 1, 0);
 const BASE_FOV = 36;
 // the walls, less a hand's width: the rendered camera never passes them
-const ROOM = { x0: -2.16, x1: 2.16, y0: 0.25, y1: 2.72, z0: -2.2, z1: 2.16 };
+const ROOM = { x0: -3.06, x1: 3.06, y0: 0.25, y1: 2.86, z0: -2.2, z1: 3.16 };
 // where the camera stands before ENTER: the back of the room, the desk and the big window in view
-export const INTRO: Frame = { pos: V(0.85, 1.75, 2.05), tgt: V(0, 1.2, -2.1) };
+export const INTRO: Frame = { pos: V(1.1, 1.85, 2.95), tgt: V(0, 1.2, -2.1) };
 // home: the middle of the room at eye height, with the orbit target LOOK in front of the eye
 const HOME = V(0, 1.42, 0.55);
 const LOOK = 0.15;
@@ -29,12 +29,20 @@ const FORWARD = V(0, -0.09, -1).normalize();
 // turns between walls pass near here
 const EYE = V(0, 1.5, 0.4);
 // looking out: the camera turns about a point on the glass, so a drag moves your head
-const GLASS = V(0, 1.62, -2.3);
+const GLASS = V(0, 1.68, -2.3);
 
 /** which way the visitor faces at home: the desk at first, then wherever they last looked or came back from */
 const homeFacing = FORWARD.clone();
 function homeFrame(): Frame {
   return { pos: HOME.clone(), tgt: HOME.clone().addScaledVector(homeFacing, LOOK) };
+}
+/** at home the eye stays level, a touch below the horizon on a wide screen (toward the desk) and a touch above on a
+ * tall one (toward the view); it never tilts up at the ceiling or down at the floor */
+function levelled(dir: V3) {
+  dir.y = 0;
+  dir.normalize();
+  dir.y = narrow() ? 0.04 : -0.09;
+  return dir.normalize();
 }
 
 /** the view is about to turn under a still pointer: drop the hover label until the pointer moves again */
@@ -91,15 +99,16 @@ export function frameFor(page: Page, W: number, H: number, fov: number): Frame {
 
 /** how far the visitor may orbit at a page, around the pose the flight lands in */
 function limitsFor(page: Page, f: Frame) {
-  // at home: all the way round, from the floor in front of the desk up to the top of the windows
-  if (page === "home") return { minAz: -Infinity, maxAz: Infinity, minPol: 0.8, maxPol: 2.05, minDist: LOOK, maxDist: LOOK };
   const sph = new THREE.Spherical().setFromVector3(f.pos.clone().sub(f.tgt));
+  // at home: all the way round, and level
+  if (page === "home") return { minAz: -Infinity, maxAz: Infinity, minPol: sph.phi, maxPol: sph.phi, minDist: LOOK, maxDist: LOOK };
   const win = page === "window", spread = STATIONS[page].spread;
   return {
     minAz: sph.theta - spread,
     maxAz: sph.theta + spread,
-    minPol: Math.max(0.3, sph.phi - (win ? 0.5 : 0.28)),
-    maxPol: Math.min(2.3, sph.phi + (win ? 0.55 : 0.22)),
+    // only a little up and down, so neither the ceiling nor the floor takes over the picture
+    minPol: Math.max(0.3, sph.phi - (win ? 0.06 : 0.14)),
+    maxPol: Math.min(2.3, sph.phi + (win ? 0.06 : 0.12)),
     minDist: win ? 0.4 : Math.max(0.18, sph.radius * 0.55),
     maxDist: win ? 1.25 : sph.radius * 1.3,
   };
@@ -121,6 +130,7 @@ function keepInRoom(p: V3, t: V3) {
 export default function CameraRig() {
   const view = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
   const size = useThree((s) => s.size);
   const rig = useMemo(() => {
     const c = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.03, 240);
@@ -176,11 +186,7 @@ export default function CameraRig() {
     // back home from a station: face the thing you were just looking at
     if (page === "home" && opts.prev) {
       const box = opts.prev === "window" ? null : stationBox(opts.prev);
-      if (box) {
-        const to = box.getCenter(V()).sub(HOME);
-        to.y *= 0.35;
-        homeFacing.copy(to.normalize());
-      } else if (opts.prev === "window") homeFacing.copy(FORWARD);
+      homeFacing.copy(levelled(box ? box.getCenter(V()).sub(HOME) : FORWARD.clone()));
     }
     const dest = frame(page);
     if (opts.instant || reduce) {
@@ -218,9 +224,7 @@ export default function CameraRig() {
   useEffect(() => {
     const unsub = useRoom.subscribe((s, p) => {
       if (s.entered && !p.entered) {
-        // a tall screen sees a lot of floor at the desk: look a little higher, at the view
-        homeFacing.copy(FORWARD);
-        if (narrow()) homeFacing.set(0, 0.04, -1).normalize();
+        homeFacing.copy(levelled(FORWARD.clone()));
         const start = pageFromHash();
         flyTo("home", {
           dur: 2.8, soft: true,
@@ -261,13 +265,14 @@ export default function CameraRig() {
     rig.aspect = size.width / size.height;
     rig.updateProjectionMatrix();
     const s = useRoom.getState();
+    if (s.page === "home") levelled(homeFacing);
     if (s.entered && !fly.current) place(s.page, frame(s.page));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.width, size.height]);
 
   // for poking at the camera from the console while developing
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") (window as unknown as Record<string, unknown>).__rig = { rig, controls, view, frame, flyTo, gl };
+    if (process.env.NODE_ENV !== "production") (window as unknown as Record<string, unknown>).__rig = { rig, controls, view, frame, flyTo, gl, scene };
   });
 
   const drift = useMemo(() => V(), []);

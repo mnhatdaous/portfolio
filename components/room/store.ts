@@ -1,15 +1,15 @@
 import { create } from "zustand";
 import { allSkills, builds, jobs } from "@/content/profile";
 
-// Pages are stations in the room. "window" is a close-up with no card of its own.
-export type Page = "home" | "about" | "work" | "stack" | "online" | "window";
+// Pages are stations in the room. "window", "calendar" and "library" are close-ups with no card of their own.
+export type Page = "home" | "about" | "work" | "stack" | "online" | "window" | "calendar" | "library";
 export const MENU: { page: Exclude<Page, "home" | "window">; label: string; key: string }[] = [
   { page: "about", label: "About", key: "1" },
   { page: "work", label: "Work", key: "2" },
   { page: "stack", label: "Stack", key: "3" },
   { page: "online", label: "Online", key: "4" },
 ];
-const PAGES: Page[] = ["home", "about", "work", "stack", "online", "window"];
+const PAGES: Page[] = ["home", "about", "work", "stack", "online", "window", "calendar", "library"];
 
 /** the board's items in order: the jobs, then the builds */
 export const WORK_ITEMS = [

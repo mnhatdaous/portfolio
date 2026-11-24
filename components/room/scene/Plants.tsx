@@ -1,25 +1,13 @@
 "use client";
 import { useMemo } from "react";
 import * as THREE from "three";
-import { canvasTexture, rng } from "../lib/textures";
-import { DESK_Y } from "./Desk";
-import { ROOM, WIN } from "./Room";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { rng } from "../lib/textures";
 
-// More green in the room: an olive tree and a fiddle-leaf fig, tulips on the desk, pots of flowers along the side
-// windows, and a tall vase of blossom. Leaves and petals are instanced, so there can be a lot of them.
+// The green in the room: an olive tree, a fiddle-leaf fig, a monstera and a rubber plant. Trunks and branches are
+// tapered tubes along curves; leaves are instanced, so there can be a lot of them.
 
 type Item = { m: THREE.Matrix4; c?: THREE.Color };
-const o = new THREE.Object3D();
-/** a matrix from a position, a rotation and a scale */
-function place(p: THREE.Vector3Like, r: [number, number, number], s: number | [number, number, number]) {
-  o.position.set(p.x, p.y, p.z);
-  o.rotation.set(r[0], r[1], r[2]);
-  if (typeof s === "number") o.scale.setScalar(s);
-  else o.scale.set(...s);
-  o.updateMatrix();
-  return o.matrix.clone();
-}
-
 function Instances({ geometry, material, items }: { geometry: THREE.BufferGeometry; material: THREE.Material; items: Item[] }) {
   const mesh = useMemo(() => {
     const im = new THREE.InstancedMesh(geometry, material, items.length);
@@ -31,17 +19,6 @@ function Instances({ geometry, material, items }: { geometry: THREE.BufferGeomet
     return im;
   }, [geometry, material, items]);
   return <primitive object={mesh} />;
-}
-
-/** a stick between two points: a trunk, a branch, a stem */
-function Stick({ a, b, r, material }: { a: THREE.Vector3; b: THREE.Vector3; r: number; material: THREE.Material }) {
-  const d = b.clone().sub(a);
-  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
-  return (
-    <mesh position={a.clone().add(b).multiplyScalar(0.5)} quaternion={q} castShadow material={material}>
-      <cylinderGeometry args={[r * 0.75, r, d.length(), 8]} />
-    </mesh>
-  );
 }
 
 const soilMat = new THREE.MeshStandardMaterial({ color: "#3a2a1e", roughness: 1 });
@@ -57,7 +34,7 @@ function Pot({ r, h, color, rough = 0.75 }: { r: number; h: number; color: strin
   );
 }
 
-// ---------------------------------------------------------------- leaves and petals
+// ---------------------------------------------------------------- leaves
 /** a narrow, pointed leaf one unit long: an olive's, a tulip's */
 function blade(width = 0.16) {
   const s = new THREE.Shape();
@@ -84,63 +61,138 @@ function fiddleLeaf() {
   return g;
 }
 
-/** a tulip's cup */
-function tulipCup() {
-  const pts = [[0, 0], [0.012, 0.003], [0.021, 0.013], [0.025, 0.03], [0.023, 0.047], [0.017, 0.058]].map(([x, y]) => new THREE.Vector2(x, y));
-  return new THREE.LatheGeometry(pts, 14);
-}
-
-/** a daisy from above: white petals round a yellow eye, on a transparent square */
-function daisyTexture() {
-  return canvasTexture(128, 128, (ctx, w) => {
-    const c = w / 2;
-    ctx.fillStyle = "#fbfaf6";
-    for (let i = 0; i < 14; i++) {
-      ctx.save();
-      ctx.translate(c, c);
-      ctx.rotate((i / 14) * Math.PI * 2);
-      ctx.beginPath();
-      ctx.ellipse(0, -34, 9, 28, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-    ctx.fillStyle = "#f0b83a";
-    ctx.beginPath();
-    ctx.arc(c, c, 15, 0, Math.PI * 2);
-    ctx.fill();
-  }).texture;
-}
-
-const LEAF_GREENS = ["#3f6b3e", "#4f7f45", "#365f39", "#5a8a4c"].map((h) => new THREE.Color(h));
 const pick = <T,>(r: () => number, xs: T[]) => xs[Math.floor(r() * xs.length)];
+
+// ---------------------------------------------------------------- trunks, branches and leaves
+const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+const UP = V(0, 1, 0);
+
+/** a tube along a smooth curve through `points`, tapering from r0 to r1: a trunk, a branch, a twig, a stem */
+function taperedTube(points: THREE.Vector3[], r0: number, r1: number, segs = 12, radial = 7) {
+  const curve = new THREE.CatmullRomCurve3(points);
+  const g = new THREE.TubeGeometry(curve, segs, 1, radial, false);
+  const p = g.attributes.position, c = V(0, 0, 0), v = V(0, 0, 0);
+  for (let i = 0; i <= segs; i++) {
+    curve.getPointAt(i / segs, c);
+    const rad = r0 + (r1 - r0) * (i / segs);
+    for (let j = 0; j <= radial; j++) {
+      const k = i * (radial + 1) + j;
+      v.fromBufferAttribute(p, k).sub(c).multiplyScalar(rad).add(c);
+      p.setXYZ(k, v.x, v.y, v.z);
+    }
+  }
+  return g;
+}
+
+/** a leaf's matrix: its length along `dir`, `len` long, its face turned up toward the light as far as it can be */
+function leafMatrix(at: THREE.Vector3, dir: THREE.Vector3, len: number, roll = 0) {
+  const y = dir.clone().normalize();
+  const z = UP.clone().addScaledVector(y, -UP.dot(y));
+  if (z.lengthSq() < 1e-6) z.set(1, 0, 0);
+  z.normalize();
+  if (roll) z.applyAxisAngle(y, roll);
+  const x = V(0, 0, 0).crossVectors(y, z);
+  return new THREE.Matrix4().makeBasis(x.multiplyScalar(len), y.multiplyScalar(len), z.multiplyScalar(len)).setPosition(at);
+}
+
+/** pairs of leaves along a twig, angled forward toward its tip, each pair turned a little from the last; one at the tip */
+function leavesAlong(curve: THREE.Curve<THREE.Vector3>, n: number, out: Item[], r: () => number, palette: THREE.Color[], len: [number, number], from = 0.2) {
+  const leaf = (at: THREE.Vector3, dir: THREE.Vector3) =>
+    out.push({ m: leafMatrix(at, dir, len[0] + r() * (len[1] - len[0]), (r() - 0.5) * 0.6), c: pick(r, palette).clone().offsetHSL(0, 0, (r() - 0.5) * 0.05) });
+  for (let i = 0; i < n; i++) {
+    const u = from + (1 - from) * (i / n), at = curve.getPointAt(u), t = curve.getTangentAt(u);
+    const side = V(0, 0, 0).crossVectors(t, UP);
+    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+    side.normalize().applyAxisAngle(t, i * 1.1 + r() * 0.5);
+    for (const sgn of [1, -1]) leaf(at, t.clone().multiplyScalar(0.8).addScaledVector(side, sgn * 0.9).add(V(0, 0.15, 0)));
+  }
+  leaf(curve.getPointAt(1), curve.getTangentAt(1).add(V(0, 0.1, 0)));
+}
+
+/** leaves a shade lighter underneath (olive leaves are silvery there, a rubber plant's reddish) */
+function twoTone(m: THREE.MeshStandardMaterial, back: [number, number, number]) {
+  m.onBeforeCompile = (s) => {
+    s.fragmentShader = s.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+      if (!gl_FrontFacing) diffuseColor.rgb *= vec3(${back.map((v) => v.toFixed(2)).join(", ")});`);
+  };
+  m.customProgramCacheKey = () => `two-tone-${back.join(",")}`;
+  return m;
+}
+
+/** an oval leaf with a pointed tip, one unit long, folded a little along its midrib */
+function ovalLeaf() {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.bezierCurveTo(0.3, 0.05, 0.34, 0.6, 0, 1);
+  s.bezierCurveTo(-0.34, 0.6, -0.3, 0.05, 0, 0);
+  const g = new THREE.ShapeGeometry(s, 8);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setZ(i, -Math.abs(p.getX(i)) * 0.25);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** a monstera leaf, one unit long: a broad heart with slits running in from the edge */
+function monsteraLeaf() {
+  const half = (side: 1 | -1) => {
+    const pts: THREE.Vector2[] = [];
+    const edge = (t: number) => new THREE.Vector2(side * 0.46 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), 0.75) * (1 - 0.25 * t), t);
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      const p = edge(t);
+      pts.push(p);
+      // a slit at a few points along the edge, cut in toward the midrib
+      if ([5, 9, 13, 17].includes(i)) {
+        pts.push(new THREE.Vector2(p.x * 0.3, p.y + 0.035));
+        pts.push(edge(t + 0.03).clone().setY(p.y + 0.05));
+      }
+    }
+    return side === 1 ? pts : pts.reverse();
+  };
+  const g = new THREE.ShapeGeometry(new THREE.Shape([...half(1), ...half(-1)]), 2);
+  // a gentle droop from the midrib outward
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setZ(i, -Math.abs(p.getX(i)) * 0.35 - p.getY(i) * p.getY(i) * 0.15);
+  g.computeVertexNormals();
+  return g;
+}
 
 // ---------------------------------------------------------------- an olive tree in the back-right corner
 export function OliveTree() {
   const m = useMemo(() => ({
-    bark: new THREE.MeshStandardMaterial({ color: "#6e6355", roughness: 0.9 }),
-    leaf: new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.6, side: THREE.DoubleSide }),
+    bark: new THREE.MeshStandardMaterial({ color: "#7d7366", roughness: 0.95 }),
+    leaf: twoTone(new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.65, side: THREE.DoubleSide }), [1.45, 1.5, 1.4]),
   }), []);
-  const { branches, leaves, geo } = useMemo(() => {
-    const r = rng(91), fork = new THREE.Vector3(0.03, 1.12, 0.02);
-    const tips = [new THREE.Vector3(-0.2, 1.62, 0.08), new THREE.Vector3(0.2, 1.75, -0.1), new THREE.Vector3(0.02, 1.98, 0.14), new THREE.Vector3(0.12, 1.4, -0.16)];
-    const silver = ["#8a9a78", "#76896a", "#9aa88a", "#6c7f62"].map((h) => new THREE.Color(h));
-    const leaves: Item[] = [];
-    tips.forEach((t, k) => {
-      const rad = k === 3 ? 0.17 : 0.27;
-      for (let i = 0; i < (k === 3 ? 110 : 210); i++) {
-        const u = r() * Math.PI * 2, v = Math.acos(2 * r() - 1), s = Math.cbrt(r());
-        const p = new THREE.Vector3(Math.sin(v) * Math.cos(u), Math.cos(v) * 0.75, Math.sin(v) * Math.sin(u)).multiplyScalar(rad * s).add(t);
-        leaves.push({ m: place(p, [r() * 6.3, r() * 6.3, r() * 6.3], 0.055 + r() * 0.025), c: pick(r, silver).clone().offsetHSL(0, 0, (r() - 0.5) * 0.06) });
+  const { wood, leaves, geo } = useMemo(() => {
+    const r = rng(91), tubes: THREE.BufferGeometry[] = [], leaves: Item[] = [];
+    const silver = ["#5f7454", "#6b7f5c", "#56694d", "#73865f"].map((h) => new THREE.Color(h));
+    // a trunk that leans and corrects itself, then opens into branches
+    const trunk = [V(0, 0.36, 0), V(0.05, 0.62, 0.02), V(-0.01, 0.88, 0.05), V(0.04, 1.08, 0.02)];
+    tubes.push(taperedTube(trunk, 0.036, 0.022, 14, 8));
+    const fork = trunk[3];
+    [V(-0.6, 1, 0.3), V(0.65, 1, -0.15), V(0.05, 1.1, 0.6), V(0.4, 0.75, 0.55), V(-0.35, 0.85, -0.5)].forEach((d0, k) => {
+      const d = d0.normalize(), len = 0.42 + r() * 0.22;
+      const start = k < 3 ? fork.clone() : V(0.02, 0.86 + k * 0.04, 0.04);
+      const end = start.clone().addScaledVector(d, len).add(V(0, -0.05, 0));
+      const mid = start.clone().lerp(end, 0.5).add(V((r() - 0.5) * 0.08, 0.06, (r() - 0.5) * 0.08));
+      tubes.push(taperedTube([start, mid, end], 0.017, 0.005, 10, 6));
+      const curve = new THREE.CatmullRomCurve3([start, mid, end]);
+      leavesAlong(curve, 6, leaves, r, silver, [0.05, 0.07], 0.5);
+      // twigs off the outer part, each with its leaves
+      for (let j = 0; j < 4; j++) {
+        const u = 0.4 + j * 0.15, at = curve.getPointAt(u), t = curve.getTangentAt(u);
+        const td = t.multiplyScalar(0.7).add(V(r() - 0.5, 0.25 + r() * 0.4, r() - 0.5).normalize()).normalize(), tl = 0.13 + r() * 0.1;
+        const twig = [at, at.clone().addScaledVector(td, tl * 0.55).add(V(0, 0.012, 0)), at.clone().addScaledVector(td, tl)];
+        tubes.push(taperedTube(twig, 0.005, 0.0022, 6, 5));
+        leavesAlong(new THREE.CatmullRomCurve3(twig), 5, leaves, r, silver, [0.045, 0.065], 0.2);
       }
     });
-    return { branches: tips.map((t) => [fork, t] as const), leaves, geo: blade(0.13) };
+    return { wood: mergeGeometries(tubes)!, leaves, geo: blade(0.12) };
   }, []);
   return (
-    <group position={[2.0, 0, 2.0]}>
+    <group position={[2.8, 0, 2.8]}>
       <Pot r={0.21} h={0.44} color="#3b3e43" rough={0.85} />
-      <Stick a={new THREE.Vector3(0, 0.4, 0)} b={new THREE.Vector3(-0.02, 0.8, 0.01)} r={0.03} material={m.bark} />
-      <Stick a={new THREE.Vector3(-0.02, 0.8, 0.01)} b={new THREE.Vector3(0.03, 1.12, 0.02)} r={0.026} material={m.bark} />
-      {branches.map(([a, b], i) => <Stick key={i} a={a} b={b} r={0.014} material={m.bark} />)}
+      <mesh geometry={wood} castShadow receiveShadow material={m.bark} />
       <Instances geometry={geo} material={m.leaf} items={leaves} />
     </group>
   );
@@ -150,160 +202,87 @@ export function OliveTree() {
 export function FiddleLeafFig() {
   const m = useMemo(() => ({
     trunk: new THREE.MeshStandardMaterial({ color: "#6b5a46", roughness: 0.85 }),
-    leaf: new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.35, side: THREE.DoubleSide }),
+    leaf: twoTone(new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.32, side: THREE.DoubleSide }), [1.25, 1.3, 1.15]),
   }), []);
-  const { leaves, geo } = useMemo(() => {
+  const { wood, leaves, geo } = useMemo(() => {
     const r = rng(17), leaves: Item[] = [];
-    for (let i = 0; i < 26; i++) {
-      const y = 0.72 + (i / 26) * 0.95, a = i * 2.4, len = 0.22 + r() * 0.12;
-      const p = new THREE.Vector3(Math.cos(a) * 0.03, y, Math.sin(a) * 0.03);
-      o.position.copy(p);
-      o.rotation.set(0, -a + Math.PI / 2, 0);
-      o.rotateX(0.55 + r() * 0.5);
-      o.scale.setScalar(len);
-      o.updateMatrix();
-      leaves.push({ m: o.matrix.clone(), c: new THREE.Color("#2f5b35").offsetHSL((r() - 0.5) * 0.02, 0, (r() - 0.5) * 0.06) });
+    const pts = [V(0, 0.3, 0), V(0.05, 0.72, -0.02), V(-0.03, 1.18, 0.04), V(0.02, 1.64, 0)];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    for (let i = 0; i < 24; i++) {
+      const u = 0.32 + (i / 23) * 0.68, at = curve.getPointAt(u), a = i * 2.4 + r() * 0.3, out = V(Math.cos(a), 0, Math.sin(a));
+      // the big leaves lower down hold out and droop; the young ones at the top stand up
+      const dir = out.clone().multiplyScalar(0.8).add(V(0, -0.1 + u * 1.1, 0));
+      leaves.push({
+        m: leafMatrix(at.clone().addScaledVector(out, 0.025), dir, 0.2 + (1 - u) * 0.1 + r() * 0.06, (r() - 0.5) * 0.5),
+        c: new THREE.Color("#2f5b35").offsetHSL((r() - 0.5) * 0.02, 0, (r() - 0.5) * 0.06 + (u - 0.5) * 0.06),
+      });
     }
-    return { leaves, geo: fiddleLeaf() };
+    return { wood: taperedTube(pts, 0.022, 0.011, 16, 7), leaves, geo: fiddleLeaf() };
   }, []);
   return (
-    <group position={[-1.98, 0, -0.2]}>
+    <group position={[-2.85, 0, -0.1]}>
       <Pot r={0.18} h={0.36} color="#e9e3d8" />
-      <Stick a={new THREE.Vector3(0, 0.33, 0)} b={new THREE.Vector3(0.02, 1.0, -0.01)} r={0.02} material={m.trunk} />
-      <Stick a={new THREE.Vector3(0.02, 1.0, -0.01)} b={new THREE.Vector3(-0.01, 1.66, 0.02)} r={0.016} material={m.trunk} />
+      <mesh geometry={wood} castShadow material={m.trunk} />
       <Instances geometry={geo} material={m.leaf} items={leaves} />
     </group>
   );
 }
 
-// ---------------------------------------------------------------- flowers on stems, for the vases
-const TULIP_COLORS = ["#f08aa2", "#e9607e", "#f4a08b", "#f7c6d0", "#fbe3a0"].map((h) => new THREE.Color(h));
-const stemMat = new THREE.MeshStandardMaterial({ color: "#4f7f3c", roughness: 0.6 });
-const petalMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.55, side: THREE.DoubleSide });
-
-/** a few tulips standing in a vase: stems splaying from `at`, a cup on each, and some leaves */
-export function Tulips({ at = [0, 0, 0], n = 6, height = 0.3, seed = 1 }: { at?: [number, number, number]; n?: number; height?: number; seed?: number }) {
-  const cup = useMemo(tulipCup, []), leaf = useMemo(() => blade(0.1), []);
-  const { stems, cups, leaves } = useMemo(() => {
-    const r = rng(seed), stems: [THREE.Vector3, THREE.Vector3][] = [], cups: Item[] = [], leaves: Item[] = [];
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + r() * 0.6, lean = 0.12 + r() * 0.16, h = height * (0.85 + r() * 0.25);
-      const top = new THREE.Vector3(Math.sin(lean) * Math.cos(a) * h, Math.cos(lean) * h, Math.sin(lean) * Math.sin(a) * h);
-      stems.push([new THREE.Vector3(0, 0, 0), top]);
-      cups.push({ m: place(top, [Math.sin(a) * lean, 0, -Math.cos(a) * lean], 1 + r() * 0.25), c: pick(r, TULIP_COLORS) });
-    }
-    for (let i = 0; i < 3; i++) {
-      const a = r() * Math.PI * 2;
-      o.position.set(0, height * 0.35, 0);
-      o.rotation.set(0, a, 0);
-      o.rotateX(0.6 + r() * 0.4);
-      o.scale.set(0.18, 0.18 + r() * 0.06, 0.18);
-      o.updateMatrix();
-      leaves.push({ m: o.matrix.clone(), c: LEAF_GREENS[1] });
-    }
-    return { stems, cups, leaves };
-  }, [n, height, seed]);
-  return (
-    <group position={at}>
-      {stems.map(([a, b], i) => <Stick key={i} a={a} b={b} r={0.0028} material={stemMat} />)}
-      <Instances geometry={cup} material={petalMat} items={cups} />
-      <Instances geometry={leaf} material={petalMat} items={leaves} />
-    </group>
-  );
-}
-
-/** tulips in a glass of water at the left end of the desk */
-export function DeskTulips() {
+// ---------------------------------------------------------------- a monstera by the desk
+export function Monstera() {
+  const leafGeo = useMemo(monsteraLeaf, []);
   const m = useMemo(() => ({
-    glass: new THREE.MeshStandardMaterial({ color: "#eef6f8", transparent: true, opacity: 0.22, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false }),
-    water: new THREE.MeshStandardMaterial({ color: "#cfe6ec", transparent: true, opacity: 0.35, roughness: 0.05, depthWrite: false }),
+    leaf: twoTone(new THREE.MeshStandardMaterial({ color: "#2f6a3c", roughness: 0.45, side: THREE.DoubleSide }), [1.2, 1.25, 1.1]),
+    stem: new THREE.MeshStandardMaterial({ color: "#4f7a3c", roughness: 0.6 }),
   }), []);
-  return (
-    <group position={[-1.13, DESK_Y, -1.8]}>
-      <mesh position={[0, 0.08, 0]} material={m.glass}><cylinderGeometry args={[0.045, 0.04, 0.16, 28, 1, true]} /></mesh>
-      <mesh position={[0, 0.05, 0]} material={m.water}><cylinderGeometry args={[0.042, 0.039, 0.1, 28]} /></mesh>
-      <Tulips at={[0, 0.02, 0]} n={7} height={0.32} seed={4} />
-    </group>
-  );
-}
-
-// ---------------------------------------------------------------- pots of flowers along the side windows
-type Kind = "geranium" | "lavender" | "daisy";
-function SillPot({ kind, seed }: { kind: Kind; seed: number }) {
-  const daisy = useMemo(() => new THREE.MeshStandardMaterial({ map: daisyTexture(), transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.7 }), []);
-  const round = useMemo(() => new THREE.CircleGeometry(1, 12), []);
-  const bud = useMemo(() => new THREE.IcosahedronGeometry(1, 1), []);
-  const spike = useMemo(() => new THREE.SphereGeometry(1, 8, 6), []);
-  const square = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
-  const parts = useMemo(() => {
-    const r = rng(seed), stems: [THREE.Vector3, THREE.Vector3][] = [], greens: Item[] = [], blooms: Item[] = [], heads: Item[] = [];
-    const n = kind === "lavender" ? 16 : kind === "daisy" ? 7 : 5;
-    for (let i = 0; i < n; i++) {
-      const a = r() * Math.PI * 2, lean = r() * 0.35, h = (kind === "lavender" ? 0.16 : 0.11) + r() * 0.06;
-      const base = new THREE.Vector3(Math.cos(a) * 0.015, 0.08, Math.sin(a) * 0.015);
-      const top = base.clone().add(new THREE.Vector3(Math.sin(lean) * Math.cos(a) * h, Math.cos(lean) * h, Math.sin(lean) * Math.sin(a) * h));
-      stems.push([base, top]);
-      if (kind === "geranium") for (let k = 0; k < 9; k++) blooms.push({ m: place(top.clone().add(new THREE.Vector3((r() - 0.5) * 0.04, (r() - 0.3) * 0.025, (r() - 0.5) * 0.04)), [0, 0, 0], 0.008 + r() * 0.004), c: new THREE.Color(r() < 0.5 ? "#d8434b" : "#ef6f7f") });
-      if (kind === "lavender") blooms.push({ m: place(top, [Math.sin(a) * lean, 0, -Math.cos(a) * lean], [0.006, 0.026, 0.006]), c: new THREE.Color(r() < 0.5 ? "#8e7cc3" : "#a28fd4") });
-      if (kind === "daisy") heads.push({ m: place(top, [-Math.PI / 2 + 0.5 * (r() - 0.5), 0, r() * 6], 0.022 + r() * 0.006) });
-    }
-    // a low skirt of leaves round the rim
+  // long stems arch out of the pot; each leaf hangs from its stem's end, tipped outward
+  const { stems, leaves } = useMemo(() => {
+    const r = rng(12), tubes: THREE.BufferGeometry[] = [], leaves: Item[] = [];
     for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * Math.PI * 2;
-      greens.push({ m: place(new THREE.Vector3(Math.cos(a) * 0.032, 0.09, Math.sin(a) * 0.032), [-Math.PI / 2 + 0.6, 0, a], kind === "geranium" ? 0.024 : 0.015), c: pick(r, LEAF_GREENS) });
+      const yaw = (i / 9) * Math.PI * 2 + r() * 0.5, up = 0.55 + r() * 0.65, out = V(Math.sin(yaw), 0, Math.cos(yaw));
+      const base = V(0, 0.3, 0).addScaledVector(out, 0.03);
+      const tip = V(0, 0.35 + up * 0.55, 0).addScaledVector(out, up * 0.45);
+      const mid = base.clone().lerp(tip, 0.5).add(V(0, 0.12, 0)).addScaledVector(out, -0.04);
+      tubes.push(taperedTube([base, mid, tip], 0.009, 0.006, 10, 6));
+      leaves.push({ m: leafMatrix(tip, out.clone().multiplyScalar(0.9).add(V(0, 0.2 - r() * 0.5, 0)), 0.32 + r() * 0.18, (r() - 0.5) * 0.4) });
     }
-    return { stems, greens, blooms, heads };
-  }, [kind, seed]);
-  return (
-    <group>
-      <Pot r={0.042} h={0.085} color="#c27a52" rough={0.85} />
-      {parts.stems.map(([a, b], i) => <Stick key={i} a={a} b={b} r={0.0022} material={stemMat} />)}
-      <Instances geometry={round} material={petalMat} items={parts.greens} />
-      {parts.blooms.length > 0 && <Instances geometry={kind === "lavender" ? spike : bud} material={petalMat} items={parts.blooms} />}
-      {parts.heads.length > 0 && <Instances geometry={square} material={daisy} items={parts.heads} />}
-    </group>
-  );
-}
-
-const SILL_Y = WIN.sideY0 + 0.024;
-const SILL: { x: number; z: number; kind: Kind }[] = [
-  { x: ROOM.x0 - 0.008, z: -1.45, kind: "lavender" }, { x: ROOM.x0 - 0.008, z: -0.95, kind: "geranium" },
-  { x: ROOM.x1 + 0.008, z: -1.2, kind: "daisy" }, { x: ROOM.x1 + 0.008, z: -0.6, kind: "lavender" }, { x: ROOM.x1 + 0.008, z: 0, kind: "geranium" },
-];
-export function SillFlowers() {
-  return <>{SILL.map((s, i) => <group key={i} position={[s.x, SILL_Y, s.z]}><SillPot kind={s.kind} seed={30 + i} /></group>)}</>;
-}
-
-// ---------------------------------------------------------------- blossom branches in a tall vase, by the left window
-export function BlossomVase() {
-  const m = useMemo(() => ({
-    vase: new THREE.MeshStandardMaterial({ color: "#efeae2", roughness: 0.5 }),
-    branch: new THREE.MeshStandardMaterial({ color: "#4a3a30", roughness: 0.85 }),
-  }), []);
-  const vase = useMemo(() => new THREE.LatheGeometry([[0, 0], [0.1, 0.01], [0.11, 0.18], [0.085, 0.4], [0.05, 0.5], [0.055, 0.53], [0.05, 0.535]].map(([x, y]) => new THREE.Vector2(x, y)), 32), []);
-  const { tubes, blooms, bud } = useMemo(() => {
-    const r = rng(63), tubes: THREE.TubeGeometry[] = [], blooms: Item[] = [];
-    const pinks = ["#f7c5d0", "#f3a7b8", "#fde4ea", "#ffffff", "#f6b4c4"].map((h) => new THREE.Color(h));
-    const ends = [[-0.18, 1.55, -0.12], [0.16, 1.45, -0.18], [-0.05, 1.7, 0.04], [0.24, 1.25, 0.08]];
-    ends.forEach(([x, y, z]) => {
-      const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0, 0.45, 0), new THREE.Vector3(x * 0.3, 0.8, z * 0.3), new THREE.Vector3(x * 0.75 + (r() - 0.5) * 0.05, y - 0.3, z * 0.75), new THREE.Vector3(x, y, z),
-      ]);
-      tubes.push(new THREE.TubeGeometry(curve, 24, 0.006, 6, false));
-      for (let t = 0.4; t <= 1; t += 0.06) {
-        const c = curve.getPointAt(t);
-        for (let k = 0; k < 4; k++) {
-          blooms.push({ m: place(c.clone().add(new THREE.Vector3((r() - 0.5) * 0.07, (r() - 0.5) * 0.05, (r() - 0.5) * 0.07)), [r() * 6, r() * 6, 0], 0.012 + r() * 0.01), c: pick(r, pinks) });
-        }
-      }
-    });
-    return { tubes, blooms, bud: new THREE.IcosahedronGeometry(1, 1) };
+    return { stems: mergeGeometries(tubes)!, leaves };
   }, []);
   return (
-    <group position={[-2.06, 0, 0.5]}>
-      <mesh geometry={vase} castShadow receiveShadow material={m.vase} />
-      {tubes.map((g, i) => <mesh key={i} geometry={g} castShadow material={m.branch} />)}
-      <Instances geometry={bud} material={petalMat} items={blooms} />
+    <group position={[-2.2, 0, -1.75]}>
+      <Pot r={0.19} h={0.34} color="#f0ece4" rough={0.35} />
+      <mesh geometry={stems} castShadow material={m.stem} />
+      <Instances geometry={leafGeo} material={m.leaf} items={leaves} />
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------- a rubber plant in the front-right corner
+export function RubberPlant() {
+  const m = useMemo(() => ({
+    stem: new THREE.MeshStandardMaterial({ color: "#5c4a35", roughness: 0.8 }),
+    leaf: twoTone(new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.22, side: THREE.DoubleSide }), [1.6, 1.2, 1.2]),
+  }), []);
+  // three stems that curve up and out, glossy dark oval leaves turning round each
+  const { stems, leaves, geo } = useMemo(() => {
+    const r = rng(52), tubes: THREE.BufferGeometry[] = [], leaves: Item[] = [];
+    const greens = ["#24402a", "#2c4a31", "#203a26"].map((h) => new THREE.Color(h));
+    [[0.04, 1.25, 0.03, 0.1], [-0.18, 1.0, 0.1, -0.2], [0.16, 0.85, -0.12, 0.15]].forEach(([dx, h, dz, bend], k) => {
+      const pts = [V(0, 0.28, 0), V(dx * 0.4, 0.28 + (h - 0.28) * 0.45, dz * 0.4), V(dx + bend * 0.2, h, dz)];
+      tubes.push(taperedTube(pts, 0.016 - k * 0.003, 0.008, 12, 6));
+      const curve = new THREE.CatmullRomCurve3(pts), n = 9 - k * 2;
+      for (let i = 0; i < n; i++) {
+        const u = 0.35 + (i / (n - 1)) * 0.65, a = i * 2.3 + k;
+        leaves.push({ m: leafMatrix(curve.getPointAt(u), V(Math.cos(a) * 0.85, 0.35 + u * 0.5, Math.sin(a) * 0.85), 0.17 + r() * 0.06, (r() - 0.5) * 0.5), c: pick(r, greens) });
+      }
+    });
+    return { stems: mergeGeometries(tubes)!, leaves, geo: ovalLeaf() };
+  }, []);
+  return (
+    <group position={[2.5, 0, -1.95]}>
+      <Pot r={0.17} h={0.32} color="#b8663f" rough={0.85} />
+      <mesh geometry={stems} castShadow material={m.stem} />
+      <Instances geometry={geo} material={m.leaf} items={leaves} />
     </group>
   );
 }

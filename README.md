@@ -44,7 +44,8 @@ Still to do:
 All in [`components/room/camera/`](components/room/camera/):
 
 - **Home turns all the way round.** In the middle of the room the orbit target sits 15 cm in front of the eye, so a
-  drag turns the head instead of circling an object, with no limit on the turn. A scroll turns it too. The drag grabs the room, as in a
+  drag turns the head instead of circling an object, with no limit on the turn. A scroll turns it too. The view
+  stays level: it never tilts up to the ceiling or down to the floor. The drag grabs the room, as in a
   panorama, and the lens widens. Coming back from a station, you face the thing you just left.
 - **Stations, not hand-placed cameras.** Each page registers its object (`registerStation`). `frameFor()` measures
   the object's bounding box and backs the camera away along the station's direction until the box fits the part of
@@ -88,6 +89,6 @@ which reads as far away.
 
 `1`–`4` sections · `Esc`, or a click anywhere outside the thing you're looking at, back to the room ·
 `←` `→` turn round in the room, or flip through notes and books ·
-`/#about` `/#work` `/#stack` `/#online` open a section · `?lofi=1` plain page (remembered) · `?room=1` the 3D room.
+`/#about` `/#work` `/#stack` `/#online` open a section, `/#calendar` `/#library` the close-ups · `?lofi=1` plain page (remembered) · `?room=1` the 3D room.
 
 Without WebGL 2, or with a software renderer, visitors get the plain page with a link into the room.

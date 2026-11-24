@@ -14,8 +14,8 @@ import CorkBoard from "./CorkBoard";
 import Desk from "./Desk";
 import Outside, { SUN } from "./Outside";
 import Phone from "./Phone";
-import { BlossomVase, DeskTulips, FiddleLeafFig, OliveTree, SillFlowers } from "./Plants";
-import { Calendar, DeskClock, DustMotes, Monstera, Mug, PendantLamp, ReadingCorner, RubberPlant } from "./Props";
+import { FiddleLeafFig, Monstera, OliveTree, RubberPlant } from "./Plants";
+import { Calendar, DeskClock, DustMotes, Mug, PendantLamp, ReadingCorner } from "./Props";
 import Room from "./Room";
 
 /** the room is "ready" once it has drawn a few frames (the canvas fades in, the gate offers ENTER) */
@@ -29,9 +29,9 @@ function Ready() {
 
 // the windows as soft lights, each shining into the room from its glass
 const WINDOW_LIGHTS = [
-  { pos: [0, 1.65, -2.26] as const, look: new THREE.Vector3(0, 1.2, 0), w: 4.4, h: 1.6, k: 1.3 },
-  { pos: [-2.26, 1.5, -0.97] as const, look: new THREE.Vector3(0, 1.2, -0.97), w: 2.5, h: 1.9, k: 0.9 },
-  { pos: [2.26, 1.5, -0.97] as const, look: new THREE.Vector3(0, 1.2, -0.97), w: 2.5, h: 1.9, k: 0.9 },
+  { pos: [0, 1.71, -2.26] as const, look: new THREE.Vector3(0, 1.2, 0), w: 6.2, h: 1.75, k: 1.3 },
+  { pos: [-3.16, 1.56, -0.97] as const, look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.05, k: 0.9 },
+  { pos: [3.16, 1.56, -0.97] as const, look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.05, k: 0.9 },
 ];
 
 /** an autumn afternoon: the sun low through the front-left windows, the sky's light from all the glass */
@@ -49,10 +49,10 @@ function Daylight() {
         intensity={5.5}
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-5}
-        shadow-camera-right={5}
-        shadow-camera-top={5}
-        shadow-camera-bottom={-5}
+        shadow-camera-left={-6.5}
+        shadow-camera-right={6.5}
+        shadow-camera-top={6.5}
+        shadow-camera-bottom={-6.5}
         shadow-camera-near={5}
         shadow-camera-far={60}
         shadow-bias={-0.0004}
@@ -85,9 +85,6 @@ export default function Scene() {
       <RubberPlant />
       <OliveTree />
       <FiddleLeafFig />
-      <DeskTulips />
-      <SillFlowers />
-      <BlossomVase />
       <CorkBoard />
       <Calendar />
       <Bookshelf />

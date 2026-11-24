@@ -11,14 +11,14 @@ import { useRoom } from "../store";
 // windows run back to the middle of the room, so from the middle the view fills half the circle; the back half is
 // walls, with the board, the bookshelves and the door.
 // Metres; y up; the window wall is at z = -2.3 and the camera starts in the middle, facing it.
-export const ROOM = { x0: -2.3, x1: 2.3, z0: -2.3, z1: 2.3, h: 2.85 };
+export const ROOM = { x0: -3.2, x1: 3.2, z0: -2.3, z1: 3.3, h: 3.0 };
 /** the walls are this thick, built outward from the room's inner faces */
 export const WALL_T = 0.16;
 /** the big window's sill and head; the side windows start lower and run back to z = sideZ1 */
-export const WIN = { y0: 0.8, y1: 2.5, sideY0: 0.5, sideZ1: 0.35 };
+export const WIN = { y0: 0.8, y1: 2.62, sideY0: 0.5, sideZ1: 0.35 };
 
 type V3 = [number, number, number];
-const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h, T = WALL_T;
+const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h, T = WALL_T, CZ = (ROOM.z0 + ROOM.z1) / 2;
 const SIDE_LEN = WIN.sideZ1 - ROOM.z0, BACK_LEN = ROOM.z1 + T - WIN.sideZ1, SIDE_MID = (ROOM.z0 + WIN.sideZ1) / 2;
 const SIDES = [-1, 1].map((s) => ({ s, x: s < 0 ? ROOM.x0 - T / 2 : ROOM.x1 + T / 2 }));
 
@@ -102,11 +102,11 @@ export default function Room() {
 
   return (
     <group>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0]} receiveShadow material={m.floor} {...solid}>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0, CZ]} receiveShadow material={m.floor} {...solid}>
         <planeGeometry args={[W, D]} />
       </mesh>
       {/* the ceiling is a slab, so the sun only comes in through the windows */}
-      <mesh position={[0, H + 0.06, 0]} castShadow receiveShadow material={m.ceil}>
+      <mesh position={[0, H + 0.06, CZ]} castShadow receiveShadow material={m.ceil}>
         <boxGeometry args={[W + 2 * T, 0.12, D + 2 * T]} />
       </mesh>
       {WALLS.map((w, i) => (
@@ -134,8 +134,8 @@ export default function Room() {
         ))}
       </group>
 
-      <mesh rotation-x={-Math.PI / 2} position={[0.1, 0.003, 0.45]} receiveShadow material={m.rug}>
-        <planeGeometry args={[2.6, 1.8]} />
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.003, 0.75]} receiveShadow material={m.rug}>
+        <planeGeometry args={[3.2, 2.2]} />
       </mesh>
 
       <Door m={m} />
@@ -146,7 +146,7 @@ export default function Room() {
 
 /** the way out, in the back wall: a charcoal door in a white casing */
 function Door({ m }: { m: { trim: THREE.Material; door: THREE.Material; brass: THREE.Material } }) {
-  const x = 1.4, w = 0.86, h = 2.05, z = ROOM.z1;
+  const x = 1.9, w = 0.86, h = 2.05, z = ROOM.z1;
   return (
     <group>
       <mesh position={[x, h / 2, z - 0.014]} castShadow receiveShadow material={m.door}><primitive object={soft(w, h, 0.03)} attach="geometry" /></mesh>
@@ -169,7 +169,8 @@ function Door({ m }: { m: { trim: THREE.Material; door: THREE.Material; brass: T
 const pillow = (w: number, h: number, d: number, k = 0.25) => new RoundedBoxGeometry(1, 1, 1, 5, k).scale(w, h, d);
 
 /** an ergonomic desk chair: caramel woven upholstery on a cream frame, a tall back and a headrest, T-arms with soft
- * pads, a five-star base on black casters. It stands at the end of the desk, turned toward the room. */
+ * pads, a five-star base on black casters. It's been rolled to the end of the desk and left turned toward it, so
+ * nothing on the desk is hidden from the middle of the room. */
 function Chair() {
   const m = useMemo(() => {
     const weave = canvasTexture(256, 256, (ctx, w, h) => {
@@ -195,7 +196,7 @@ function Chair() {
     pad: pillow(0.085, 0.03, 0.24, 0.3),
   }), []);
   return (
-    <group position={[0.82, 0, -1.25]} rotation-y={2.35}>
+    <group position={[1.85, 0, -1.25]} rotation-y={0.86}>
       {/* the base: five cream spokes on twin-wheel casters, a black column with a chrome collar */}
       {[0, 1, 2, 3, 4].map((k) => (
         <group key={k} rotation-y={(k / 5) * Math.PI * 2}>

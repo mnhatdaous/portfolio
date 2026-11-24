@@ -9,7 +9,6 @@ import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
-import { Tulips } from "./Plants";
 import { Pothos } from "./Props";
 import { ROOM } from "./Room";
 
@@ -136,7 +135,7 @@ export default function Bookshelf() {
 
   const top = BOARDS[BOARDS.length - 1] + 0.0125;
   return (
-    <group ref={ref} position={[ROOM.x1 - DEPTH / 2, 0, 1.3]} rotation-y={-Math.PI / 2}>
+    <group ref={ref} position={[ROOM.x1 - DEPTH / 2, 0, 1.7]} rotation-y={-Math.PI / 2}>
       <group {...clickable("BOOKSHELF · STACK", () => useRoom.getState().go("stack"))}>
         {[-1, 1].map((s) => (
           <mesh key={s} position={[s * (WIDTH / 2 - 0.0125), top / 2, 0]} castShadow receiveShadow material={m.steel}>
@@ -190,7 +189,7 @@ export default function Bookshelf() {
 // ---------------------------------------------------------------- the built-in shelves on the back wall
 // Decoration for when you turn round: shelves of books (one instanced mesh), a few things between them.
 // Local coordinates as for Stack: x along the wall as you face it, z out into the room.
-const LIB = { x0: -2.24, x1: 0.34, h: 2.3, d: 0.3, boards: 6 };
+const LIB = { x0: ROOM.x0 + 0.08, x1: 0.3, h: 2.3, d: 0.3, boards: 6 };
 const LIB_COLORS = ["#f1ece2", "#e9e2d2", "#2f4a6b", "#c4733c", "#20242b", "#a9b8a4", "#d9b55c", "#7b8ea3", "#efe6d2", "#8c4b38", "#5b6f60"];
 
 export function Library() {
@@ -240,7 +239,11 @@ export function Library() {
   }, [W, step, m]);
 
   return (
-    <group position={[(LIB.x0 + LIB.x1) / 2, 0, ROOM.z1 - LIB.d / 2]} rotation-y={Math.PI}>
+    <group
+      position={[(LIB.x0 + LIB.x1) / 2, 0, ROOM.z1 - LIB.d / 2]}
+      rotation-y={Math.PI}
+      {...clickable(() => (useRoom.getState().page === "library" ? "SHELVES" : "SHELVES · LOOK CLOSER"), () => useRoom.getState().go("library"))}
+    >
       {[-1, 0, 1].map((s) => (
         <mesh key={s} position={[s * (W / 2 - 0.0125), LIB.h / 2, 0]} castShadow receiveShadow material={m.wood}><primitive object={soft(0.025, LIB.h, LIB.d)} attach="geometry" /></mesh>
       ))}
@@ -250,12 +253,7 @@ export function Library() {
       <primitive object={mesh} />
       {gaps.map((g, i) => (
         <group key={i} position={[g.x, g.y, 0.02]}>
-          {g.kind === 0 && (
-            <group>
-              <mesh position={[0, 0.09, 0]} castShadow material={m.vase}><cylinderGeometry args={[0.035, 0.05, 0.18, 24]} /></mesh>
-              <Tulips at={[0, 0.15, 0]} n={4} height={0.15} seed={i + 9} />
-            </group>
-          )}
+          {g.kind === 0 && <mesh position={[0, 0.09, 0]} castShadow material={m.vase}><cylinderGeometry args={[0.035, 0.05, 0.18, 24]} /></mesh>}
           {g.kind === 1 && (
             <group rotation-y={0.2}>
               <mesh position={[0, 0.1, -0.04]} rotation-x={-0.12} castShadow material={m.frame}><primitive object={soft(0.16, 0.2, 0.012)} attach="geometry" /></mesh>

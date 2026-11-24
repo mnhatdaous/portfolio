@@ -198,7 +198,7 @@ export default function CorkBoard() {
   });
 
   return (
-    <group ref={ref} position={[ROOM.x0 + 0.02, 1.5, 1.3]} rotation-y={Math.PI / 2}>
+    <group ref={ref} position={[ROOM.x0 + 0.02, 1.5, 1.7]} rotation-y={Math.PI / 2}>
       <group {...clickable("CORK BOARD · WORK", () => useRoom.getState().go("work"))}>
         <mesh position={[0, 0, -0.005]} castShadow receiveShadow material={m.frame}><primitive object={soft(1.14, 0.79, 0.03)} attach="geometry" /></mesh>
         <mesh position={[0, 0, 0.0105]} receiveShadow material={m.cork}><planeGeometry args={[1.08, 0.73]} /></mesh>

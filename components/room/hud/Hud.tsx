@@ -263,7 +263,7 @@ export default function Hud() {
     useRoom.getState().setSound(next);
     sound.start(next);
   };
-  const label = page === "home" ? "In the room" : page === "window" ? "Looking out of the window" : TITLE[page];
+  const label = page === "home" ? "In the room" : page === "window" ? "Looking out of the window" : page === "calendar" ? "The calendar" : page === "library" ? "The shelves" : TITLE[page];
 
   return (
     <>
@@ -295,6 +295,8 @@ export default function Hud() {
         <span className="spacer" />
         {page === "home" && <span className="hint frost">Drag or scroll to look around · open the computer, board, shelf or phone · pet the cat</span>}
         {page === "window" && <span className="hint frost">Drag to look around · click or Esc to come back</span>}
+        {page === "calendar" && <span className="hint frost">Click the calendar for the next month · click outside or Esc to come back</span>}
+        {page === "library" && <span className="hint frost">Click outside or Esc to come back</span>}
         <span className="spacer" />
         <a className="pill frost" href={song.href} target="_blank" rel="noopener noreferrer" aria-label={`${song.title} by ${song.artist}, on YouTube`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

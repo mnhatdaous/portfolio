@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { profile } from "@/content/profile";
+import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
@@ -161,7 +162,7 @@ export function PendantLamp() {
 
 // ---------------------------------------------------------------- the reading corner: an armchair and a lamp
 // clear of the shelves on the back wall and of the board on the left one
-const CORNER = new THREE.Vector3(-1.45, 0, 1.05);
+const CORNER = new THREE.Vector3(-2.2, 0, 2.0);
 
 /** a knit throw over the armchair's arm: the arm's rounded top in section, a short fall on the inside and a long one
  * outside, run along the arm. In the arm's coordinates: x across it (outside is -x), y up, centred on z. */
@@ -224,7 +225,7 @@ export function ReadingCorner() {
   return (
     <group>
       {/* an armchair turned toward the windows: soft cushions, a pillow, a blanket folded over one arm */}
-      <group position={CORNER} rotation-y={2.68}>
+      <group position={CORNER} rotation-y={2.6}>
         {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
           <mesh key={`${sx}${sz}`} position={[sx * 0.3, 0.07, sz * 0.27]} rotation={[-sz * 0.12, 0, sx * 0.12]} castShadow material={m.steel}>
             <cylinderGeometry args={[0.017, 0.011, 0.15, 10]} />
@@ -240,7 +241,7 @@ export function ReadingCorner() {
         <mesh geometry={chair.pillow} position={[0.13, 0.6, -0.09]} rotation={[-0.28, -0.22, 0.16]} castShadow receiveShadow material={m.pillow} />
         <mesh geometry={chair.throw} position={[-0.34, 0, 0.06]} castShadow receiveShadow material={m.throw} />
       </group>
-      <group position={[-0.85, 0, 1.45]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
+      <group position={[-2.85, 0, 2.6]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
         <mesh position={[0, 0.012, 0]} castShadow receiveShadow material={m.metal}><cylinderGeometry args={[0.14, 0.16, 0.024, 32]} /></mesh>
         <mesh position={[0, 0.75, 0]} castShadow material={m.metal}><cylinderGeometry args={[0.011, 0.011, 1.48, 10]} /></mesh>
         <mesh position={[0, 1.58, 0]} castShadow material={m.shade}><cylinderGeometry args={[0.15, 0.2, 0.28, 32, 1, true]} /></mesh>
@@ -257,68 +258,6 @@ function heartLeaf() {
   s.bezierCurveTo(0.03, 0.006, 0.04, 0.045, 0, 0.07);
   s.bezierCurveTo(-0.04, 0.045, -0.03, 0.006, 0, 0);
   return new THREE.ShapeGeometry(s, 6);
-}
-
-/** a monstera leaf, one unit long: a broad heart with slits running in from the edge */
-function monsteraLeaf() {
-  const half = (side: 1 | -1) => {
-    const pts: THREE.Vector2[] = [];
-    const edge = (t: number) => new THREE.Vector2(side * 0.46 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), 0.75) * (1 - 0.25 * t), t);
-    for (let i = 0; i <= 24; i++) {
-      const t = i / 24;
-      const p = edge(t);
-      pts.push(p);
-      // a slit at a few points along the edge, cut in toward the midrib
-      if ([5, 9, 13, 17].includes(i)) {
-        pts.push(new THREE.Vector2(p.x * 0.3, p.y + 0.035));
-        pts.push(edge(t + 0.03).clone().setY(p.y + 0.05));
-      }
-    }
-    return side === 1 ? pts : pts.reverse();
-  };
-  const outline = [...half(1), ...half(-1)];
-  const g = new THREE.ShapeGeometry(new THREE.Shape(outline), 2);
-  // a gentle droop from the midrib outward
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) p.setZ(i, -Math.abs(p.getX(i)) * 0.35 - p.getY(i) * p.getY(i) * 0.15);
-  g.computeVertexNormals();
-  return g;
-}
-
-export function Monstera() {
-  const leafGeo = useMemo(monsteraLeaf, []);
-  const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#f0ece4", roughness: 0.35, side: THREE.DoubleSide }),
-    soil: new THREE.MeshStandardMaterial({ color: "#3a2a1e", roughness: 1 }),
-    leaf: new THREE.MeshStandardMaterial({ color: "#2f6a3c", roughness: 0.5, side: THREE.DoubleSide }),
-    stem: new THREE.MeshStandardMaterial({ color: "#4f7a3c", roughness: 0.6 }),
-  }), []);
-  const leaves = useMemo(() => {
-    const r = rng(12);
-    return Array.from({ length: 9 }, (_, i) => {
-      const yaw = (i / 9) * Math.PI * 2 + r() * 0.5, up = 0.55 + r() * 0.65, len = 0.32 + r() * 0.18;
-      const tip = new THREE.Vector3(Math.sin(yaw) * up * 0.45, 0.35 + up * 0.55, Math.cos(yaw) * up * 0.45);
-      return { yaw, tip, len, tilt: 0.5 + r() * 0.5 };
-    });
-  }, []);
-  return (
-    <group position={[-1.88, 0, -1.72]}>
-      <mesh position={[0, 0.17, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.19, 0.15, 0.34, 32, 1, true]} /></mesh>
-      <mesh position={[0, 0.315, 0]} material={m.soil}><cylinderGeometry args={[0.185, 0.185, 0.01, 32]} /></mesh>
-      {leaves.map((l, i) => {
-        const base = new THREE.Vector3(0, 0.33, 0), d = l.tip.clone().sub(base);
-        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
-        return (
-          <group key={i}>
-            <mesh position={base.clone().add(l.tip).multiplyScalar(0.5)} quaternion={q} castShadow material={m.stem}>
-              <cylinderGeometry args={[0.006, 0.008, d.length(), 6]} />
-            </mesh>
-            <mesh geometry={leafGeo} position={l.tip} rotation={[l.tilt, l.yaw, 0, "YXZ"]} scale={l.len} castShadow material={m.leaf} />
-          </group>
-        );
-      })}
-    </group>
-  );
 }
 
 /** a pothos: a bushy pot, and vines trailing over the edge it sits on (+z) */
@@ -366,38 +305,12 @@ export function Pothos({ position, vines = 3, length = 6, rotation = 0 }: { posi
   );
 }
 
-/** a rubber plant in terracotta, in the front-right corner */
-export function RubberPlant() {
-  const leaf = useMemo(heartLeaf, []);
-  const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#b8663f", roughness: 0.85, side: THREE.DoubleSide }),
-    soil: new THREE.MeshStandardMaterial({ color: "#3a2a1e", roughness: 1 }),
-    leaf: new THREE.MeshStandardMaterial({ color: "#2c4f33", roughness: 0.4, side: THREE.DoubleSide }),
-    stem: new THREE.MeshStandardMaterial({ color: "#5c4a35", roughness: 0.8 }),
-  }), []);
-  const leaves = useMemo(() => {
-    const r = rng(52);
-    return Array.from({ length: 34 }, (_, i) => {
-      const y = 0.45 + (i / 34) * 0.75 + r() * 0.05, a = i * 2.4;
-      return { p: [Math.sin(a) * 0.07, y, Math.cos(a) * 0.07] as [number, number, number], rot: [-0.6 - r() * 0.5, a, 0] as [number, number, number], s: 2.6 + r() * 1.2 };
-    });
-  }, []);
-  return (
-    <group position={[1.9, 0, -1.78]}>
-      <mesh position={[0, 0.16, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.17, 0.13, 0.32, 28, 1, true]} /></mesh>
-      <mesh position={[0, 0.3, 0]} material={m.soil}><cylinderGeometry args={[0.165, 0.165, 0.01, 28]} /></mesh>
-      <mesh position={[0, 0.78, 0]} castShadow material={m.stem}><cylinderGeometry args={[0.012, 0.016, 0.95, 8]} /></mesh>
-      {leaves.map((l, i) => <mesh key={i} geometry={leaf} position={l.p} rotation={l.rot} scale={l.s} castShadow material={m.leaf} />)}
-    </group>
-  );
-}
-
 // ---------------------------------------------------------------- dust in the sunbeams
 export function DustMotes() {
   const { geo, mat } = useMemo(() => {
-    const r = rng(61), n = 240, pos = new Float32Array(n * 3), seed = new Float32Array(n);
+    const r = rng(61), n = 320, pos = new Float32Array(n * 3), seed = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      pos.set([-2.1 + r() * 4.2, 0.75 + r() * 1.8, -2.2 + r() * 2.4], i * 3);
+      pos.set([-3.0 + r() * 6.0, 0.75 + r() * 1.9, -2.2 + r() * 2.6], i * 3);
       seed[i] = r();
     }
     const geo = new THREE.BufferGeometry();
@@ -449,7 +362,7 @@ function monthOf(offset: number) {
 
 function drawMonth(ctx: CanvasRenderingContext2D, offset: number) {
   const { y, m, today } = monthOf(offset);
-  const ink = "#22262b", accent = "#c0632b", muted = "rgba(34,38,43,.62)", L = 90, R = CW - 90, colW = (R - L) / 7;
+  const ink = "#22262b", accent = "#c0632b", muted = "rgba(34,38,43,.78)", L = 90, R = CW - 90, colW = (R - L) / 7;
   ctx.fillStyle = "#f8f6f1";
   ctx.fillRect(0, 0, CW, CH);
   // the month's number, big; the year and the month's name opposite, and a dot of colour
@@ -496,6 +409,8 @@ function drawMonth(ctx: CanvasRenderingContext2D, offset: number) {
 }
 
 export function Calendar() {
+  const ref = useRef<THREE.Group>(null);
+  useEffect(() => { registerStation("calendar", ref.current); return () => registerStation("calendar", null); }, []);
   const front = useMemo(() => canvasTexture(CW, CH, (ctx) => drawMonth(ctx, 0), { anisotropy: 16 }), []);
   const flip = useMemo(() => canvasTexture(CW, CH, (ctx) => drawMonth(ctx, 0), { anisotropy: 16 }), []);
   const st = useRef({ offset: 0, t: -1 });
@@ -529,10 +444,13 @@ export function Calendar() {
     drawMonth(front.ctx, s.offset); front.texture.needsUpdate = true;
     s.t = 0;
   };
-  const label = () => (st.current.offset === 2 ? "CALENDAR · BACK TO THIS MONTH" : "CALENDAR · NEXT MONTH");
+  // a click from across the room comes over to look; up close, a click turns the page
+  const act = () => (useRoom.getState().page === "calendar" ? next() : useRoom.getState().go("calendar"));
+  const label = () =>
+    useRoom.getState().page !== "calendar" ? "CALENDAR · LOOK CLOSER" : st.current.offset === 2 ? "CALENDAR · BACK TO THIS MONTH" : "CALENDAR · NEXT MONTH";
 
   return (
-    <group position={[0.62, 1.5, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable(label, next)}>
+    <group ref={ref} position={[0.85, 1.5, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable(label, act)}>
       <mesh position={[0, 0, 0.006]} castShadow material={m.frame}><primitive object={soft(POSTER.w + 0.016, POSTER.h + 0.016, 0.012, 0.004)} attach="geometry" /></mesh>
       <mesh position={[0, 0, 0.0125]} material={m.paper}><planeGeometry args={[POSTER.w, POSTER.h]} /></mesh>
       <group ref={page} position={[0, POSTER.h / 2, 0.0135]}>
