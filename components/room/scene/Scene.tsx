@@ -15,7 +15,8 @@ import Desk from "./Desk";
 import Outside, { SUN } from "./Outside";
 import Phone from "./Phone";
 import { FiddleLeafFig, Monstera, OliveTree, RubberPlant } from "./Plants";
-import { Calendar, DeskClock, DustMotes, Mug, PendantLamp, ReadingCorner } from "./Props";
+import { Calendar } from "./Calendar";
+import { DeskClock, DustMotes, Mug, PendantLamp, ReadingCorner } from "./Props";
 import Room from "./Room";
 
 /** the room is "ready" once it has drawn a few frames (the canvas fades in, the gate offers ENTER) */

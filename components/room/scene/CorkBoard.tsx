@@ -10,8 +10,8 @@ import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { ROOM } from "./Room";
 
-// Work: a cork board on the left wall. A sticky note per job, an index card per build (tied to AusyncLab with red
-// string), a polaroid. Local coordinates: x across the board as the camera sees it, y up, z out of the cork.
+// Work: a cork board on the left wall. A sticky note per job, an index card per build, a polaroid. Local
+// coordinates: x across the board as the camera sees it, y up, z out of the cork.
 
 type Item = { kind: "job" | "build"; i: number; x: number; y: number; w: number; h: number; rot: number; label: string };
 
@@ -149,18 +149,7 @@ export default function CorkBoard() {
     title: new THREE.MeshStandardMaterial({ map: tex.title.texture, roughness: 0.9 }),
     polaroid: new THREE.MeshStandardMaterial({ map: tex.polaroid.texture, roughness: 0.6 }),
     pins: ["#e84545", "#2f7de1", "#f2c230", "#3bb273", "#ffffff"].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.1 })),
-    yarn: new THREE.MeshStandardMaterial({ color: "#c0262d", roughness: 0.7 }),
   }), [tex]);
-
-  // red string from AusyncLab's pin to each build's
-  const yarn = useMemo(() => {
-    const a = ITEMS[0], from = new THREE.Vector3(a.x, a.y + a.h / 2 - 0.018, 0.022);
-    return ITEMS.filter((it) => it.kind === "build").map((b) => {
-      const to = new THREE.Vector3(b.x, b.y + b.h / 2 - pinInset(b), 0.022);
-      const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3(0, -0.035, 0.006));
-      return new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(from, mid, to), 24, 0.0016, 5, false);
-    });
-  }, []);
 
   // a string of fairy lights along the top of the frame, which is also what lights the board
   const fairy = useMemo(() => {
@@ -205,7 +194,6 @@ export default function CorkBoard() {
         <mesh position={[-0.42, 0.225, 0.013]} rotation-z={0.05} material={m.title}><planeGeometry args={[0.18, 0.12]} /></mesh>
         <mesh position={[0.36, -0.13, 0.013]} rotation-z={-0.07} material={m.polaroid}><planeGeometry args={[0.15, 0.176]} /></mesh>
         <mesh position={[0.36, -0.13 + 0.075, 0.02]} material={m.pins[4]}><sphereGeometry args={[0.008, 12, 10]} /></mesh>
-        {yarn.map((g, i) => <mesh key={i} geometry={g} material={m.yarn} />)}
       </group>
       <mesh geometry={fairy.wire} material={wireMat} />
       {fairy.bulbs.map((p, i) => <mesh key={i} position={p} material={bulbMat}><sphereGeometry args={[0.006, 8, 6]} /></mesh>)}

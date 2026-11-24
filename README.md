@@ -84,13 +84,13 @@ which reads as far away.
 | `components/room/store.ts` | page state, selection, lamps |
 | `components/room/hud/Hud.tsx` | menu, cards, hover labels, the welcome gate |
 | `components/room/hud/Music.tsx` | the song: its button in the bottom bar and the YouTube player card it opens |
-| `components/room/scene/` | the room, the desk and its things, the cat, the board, the shelves, the view outside |
+| `components/room/scene/` | the room, the desk and its things, the cat, the board, the shelves, the wall calendar (a picture of the lake for every month), the view outside |
 | `components/room/lib/audio.ts` | wind in the trees, birds, the lake, the cat's purr and meow, all made with Web Audio |
 
 ## Keys and URLs
 
 `1`–`4` sections · `Esc`, or a click anywhere outside the thing you're looking at, back to the room ·
-`←` `→` turn round in the room, or flip through notes and books ·
+`←` `→` turn round in the room, or flip through notes, books and the calendar's year ahead ·
 `/#about` `/#work` `/#stack` `/#online` open a section, `/#calendar` `/#library` the close-ups · `?lofi=1` plain page (remembered) · `?room=1` the 3D room.
 
 Without WebGL 2, or with a software renderer, visitors get the plain page with a link into the room.

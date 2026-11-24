@@ -1,12 +1,11 @@
 "use client";
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { profile } from "@/content/profile";
-import { registerStation } from "../camera/stations";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clickable } from "../lib/interact";
-import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
+import { canvasTexture, rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { saigonTime } from "./Computer";
@@ -260,45 +259,76 @@ function heartLeaf() {
   return new THREE.ShapeGeometry(s, 6);
 }
 
-/** a pothos: a bushy pot, and vines trailing over the edge it sits on (+z) */
-export function Pothos({ position, vines = 3, length = 6, rotation = 0 }: { position: [number, number, number]; vines?: number; length?: number; rotation?: number }) {
+/** a pothos: a bushy pot, and vines that run out across whatever it stands on and trail over the front edge, `edge`
+ * metres ahead of the pot (+z). Every leaf hangs from a stem. */
+export function Pothos({ position, vines = 3, length = 6, rotation = 0, edge = 0.14 }: { position: [number, number, number]; vines?: number; length?: number; rotation?: number; edge?: number }) {
   const leaf = useMemo(heartLeaf, []);
   const greens = useMemo(() => ["#3f7d3a", "#4f8f3f", "#5f9b43", "#3a6e34"].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, side: THREE.DoubleSide })), []);
   const m = useMemo(() => ({
     pot: new THREE.MeshStandardMaterial({ color: "#c27a52", roughness: 0.85, side: THREE.DoubleSide }),
     soil: new THREE.MeshStandardMaterial({ color: "#2b1d14", roughness: 1 }),
+    stem: new THREE.MeshStandardMaterial({ color: "#56763a", roughness: 0.7 }),
   }), []);
-  const leaves = useMemo(() => {
-    const r = rng(23 + vines * 7 + length), out: { p: [number, number, number]; rot: [number, number, number]; s: number; c: number }[] = [];
+  const { leaves, stems } = useMemo(() => {
+    const r = rng(23 + vines * 7 + length), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+    const leaves: { p: THREE.Vector3; q: THREE.Quaternion; s: number; c: number }[] = [], tubes: THREE.BufferGeometry[] = [];
+    /** a leaf whose tip points along `tip`, its face turned toward `face` */
+    const orient = (tip: THREE.Vector3, face: THREE.Vector3) => {
+      const y = tip.clone().normalize(), z = face.clone().addScaledVector(y, -face.dot(y)).normalize();
+      return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(y, z), y, z));
+    };
+    // the bush: leaves on short stalks rising out of the soil
     for (let i = 0; i < 16; i++) {
-      const a = r() * Math.PI * 2, d = r() * 0.06;
-      out.push({ p: [Math.cos(a) * d, 0.11 + r() * 0.08, Math.sin(a) * d], rot: [-0.5 - r() * 0.8, a, (r() - 0.5) * 0.8], s: 0.9 + r() * 0.5, c: Math.floor(r() * 4) });
+      const a = r() * Math.PI * 2, d = 0.012 + r() * 0.05, out = V(Math.cos(a), 0, Math.sin(a));
+      const base = V(out.x * d, 0.11 + r() * 0.08, out.z * d);
+      tubes.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(V(out.x * d * 0.3, 0.088, out.z * d * 0.3), V(out.x * d * 0.6, base.y * 0.85, out.z * d * 0.6), base), 5, 0.0015, 4, false));
+      leaves.push({ p: base, q: orient(out.clone().setY(0.5 + r() * 0.9), V(0, 1, 0).addScaledVector(out, 0.4)), s: 0.9 + r() * 0.5, c: Math.floor(r() * 4) });
     }
+    // the vines: up over the rim, along the surface to the edge, over it and down, swinging a little side to side
     for (let v = 0; v < vines; v++) {
-      const x0 = (v - (vines - 1) / 2) * 0.05;
+      const phi = (v - (vines - 1) / 2) * 0.42 + (r() - 0.5) * 0.16, dir = V(Math.sin(phi), 0, Math.cos(phi)), side = V(dir.z, 0, -dir.x);
+      const reach = Math.max(0.13, edge / Math.cos(phi)), drop = length * 0.045 * (0.8 + r() * 0.4);
+      const at = (h: number, y: number) => dir.clone().multiplyScalar(h).setY(y);
+      const pts = [at(0.02, 0.088), at(0.07, 0.112), at(0.088, 0.075), at(0.105, 0.01), at(reach - 0.012, 0.006), at(reach + 0.008, -0.01)];
+      const n = Math.max(3, Math.round(drop / 0.05));
+      for (let k = 1; k <= n; k++) {
+        const t = k / n;
+        pts.push(at(reach + 0.018 + Math.sin(t * 2.5 + v) * 0.012, -0.01 - drop * t).addScaledVector(side, Math.sin(t * 3.5 + v * 2.1) * 0.025));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
+      tubes.push(new THREE.TubeGeometry(curve, 72, 0.0019, 5, false));
+      // a leaf at each node, alternating sides: lying on the shelf along the top, hanging and facing out below the edge
       for (let k = 0; k < length; k++) {
-        const t = k / (length - 1);
-        out.push({ p: [x0 + Math.sin(k + v) * 0.02, 0.08 - t * 0.045 * length, 0.07 + Math.min(t, 0.25) * 0.12], rot: [0.9 + r() * 0.5, (r() - 0.5) * 1.5, (r() - 0.5) * 0.8], s: 0.75 + r() * 0.3, c: Math.floor(r() * 4) });
+        const u = 0.1 + (0.9 * (k + 0.5)) / length, p = curve.getPointAt(u), tan = curve.getTangentAt(u);
+        const lr = k % 2 ? 1 : -1, hanging = p.y < -0.02;
+        const tip = hanging ? V(0, -1, 0).addScaledVector(dir, 0.55).addScaledVector(side, lr * 0.55) : tan.clone().setY(0).addScaledVector(side, lr * 0.9);
+        const face = hanging ? dir.clone().add(V(0, 0.35, 0)).addScaledVector(side, lr * 0.3) : V(0, 1, 0);
+        leaves.push({ p: p.addScaledVector(side, lr * 0.006), q: orient(tip, face), s: 0.72 + r() * 0.32, c: Math.floor(r() * 4) });
       }
     }
-    return out;
-  }, [vines, length]);
+    return { leaves, stems: mergeGeometries(tubes)! };
+  }, [vines, length, edge]);
   const group = useRef<THREE.Group>(null);
   const rustle = useRef(0);
+  const tmp = useMemo(() => ({ q: new THREE.Quaternion(), e: new THREE.Euler() }), []);
   useFrame(({ clock }, dt) => {
     const g = group.current;
     if (!g) return;
     rustle.current = Math.max(0, rustle.current - dt * 0.8);
-    const T = clock.elapsedTime, amp = 0.02 + rustle.current * 0.12;
-    g.children.forEach((c, i) => { c.rotation.z = c.userData.rz + Math.sin(T * (1.4 + (i % 5) * 0.3) + i) * amp; });
+    const T = clock.elapsedTime, amp = 0.03 + rustle.current * 0.16;
+    g.children.forEach((c, i) => {
+      const w = T * (1.4 + (i % 5) * 0.3) + i;
+      c.quaternion.copy(leaves[i].q).multiply(tmp.q.setFromEuler(tmp.e.set(Math.sin(w) * amp, 0, Math.sin(w * 0.7 + 1) * amp)));
+    });
   });
   return (
     <group position={position} rotation-y={rotation} {...clickable("POTHOS · RUSTLE", () => { rustle.current = 1; })}>
       <mesh position={[0, 0.05, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.065, 0.048, 0.1, 24, 1, true]} /></mesh>
       <mesh position={[0, 0.088, 0]} material={m.soil}><cylinderGeometry args={[0.062, 0.062, 0.006, 24]} /></mesh>
+      <mesh geometry={stems} castShadow material={m.stem} />
       <group ref={group}>
         {leaves.map((l, i) => (
-          <mesh key={i} geometry={leaf} material={greens[l.c]} position={l.p} rotation={l.rot} scale={l.s} castShadow userData={{ rz: l.rot[2] }} />
+          <mesh key={i} geometry={leaf} material={greens[l.c]} position={l.p} quaternion={l.q} scale={l.s} castShadow />
         ))}
       </group>
     </group>
@@ -346,116 +376,4 @@ export function DustMotes() {
     mat.uniforms.uScale.value = gl.getPixelRatio() * 2;
   });
   return <points geometry={geo} material={mat} />;
-}
-
-// ---------------------------------------------------------------- the month on the wall, in a slim black frame
-// Drawn large (3,600 px a metre) so it stays sharp up close. A click flips the page up to the next month; after a
-// couple of months it comes back to this one.
-const POSTER = { w: 0.3, h: 0.4167 }, CW = 1080, CH = 1500;
-
-/** Saigon's month today, `offset` months on, and today's date if it's this month */
-function monthOf(offset: number) {
-  const now = new Date(), part = (o: Intl.DateTimeFormatOptions) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: profile.timeZone, ...o }).format(now));
-  const i = part({ month: "numeric" }) - 1 + offset;
-  return { y: part({ year: "numeric" }) + Math.floor(i / 12), m: (i % 12) + 1, today: offset === 0 ? part({ day: "numeric" }) : -1 };
-}
-
-function drawMonth(ctx: CanvasRenderingContext2D, offset: number) {
-  const { y, m, today } = monthOf(offset);
-  const ink = "#22262b", accent = "#c0632b", muted = "rgba(34,38,43,.78)", L = 90, R = CW - 90, colW = (R - L) / 7;
-  ctx.fillStyle = "#f8f6f1";
-  ctx.fillRect(0, 0, CW, CH);
-  // the month's number, big; the year and the month's name opposite, and a dot of colour
-  ctx.textAlign = "left";
-  ctx.fillStyle = ink;
-  ctx.font = `800 300px ${FONT.display()}`;
-  ctx.fillText(String(m).padStart(2, "0"), L - 14, 360);
-  ctx.textAlign = "right";
-  ctx.font = `500 46px ${FONT.mono()}`;
-  ctx.fillText(String(y), R, 172);
-  ctx.fillStyle = muted;
-  ctx.font = `400 40px ${FONT.mono()}`;
-  ctx.fillText(new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1))).toUpperCase(), R, 232);
-  ctx.fillStyle = accent;
-  ctx.beginPath();
-  ctx.arc(R - 12, 330, 14, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(34,38,43,.14)";
-  ctx.fillRect(L, 432, R - L, 3);
-  // the week, Monday first, as a Vietnamese calendar has it
-  ctx.textAlign = "center";
-  ctx.font = `500 34px ${FONT.mono()}`;
-  ["T2", "T3", "T4", "T5", "T6", "T7", "CN"].forEach((d, i) => {
-    ctx.fillStyle = i === 6 ? accent : muted;
-    ctx.fillText(d, L + colW * (i + 0.5), 512);
-  });
-  const first = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7, n = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  for (let d = 1; d <= n; d++) {
-    const cell = first + d - 1, cx = L + colW * ((cell % 7) + 0.5), cy = 625 + Math.floor(cell / 7) * 128;
-    if (d === today) {
-      ctx.fillStyle = accent;
-      ctx.beginPath();
-      ctx.arc(cx, cy - 17, 48, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = d === today ? "#ffffff" : cell % 7 === 6 ? accent : ink;
-    ctx.font = `${d === today ? 700 : 500} 50px ${FONT.display()}`;
-    ctx.fillText(String(d), cx, cy);
-  }
-  ctx.textAlign = "left";
-  ctx.fillStyle = muted;
-  ctx.font = `400 32px ${FONT.mono()}`;
-  ctx.fillText("Sài Gòn · GMT+7", L, CH - 72);
-}
-
-export function Calendar() {
-  const ref = useRef<THREE.Group>(null);
-  useEffect(() => { registerStation("calendar", ref.current); return () => registerStation("calendar", null); }, []);
-  const front = useMemo(() => canvasTexture(CW, CH, (ctx) => drawMonth(ctx, 0), { anisotropy: 16 }), []);
-  const flip = useMemo(() => canvasTexture(CW, CH, (ctx) => drawMonth(ctx, 0), { anisotropy: 16 }), []);
-  const st = useRef({ offset: 0, t: -1 });
-  const page = useRef<THREE.Group>(null);
-  useEffect(() => {
-    fontsReady().then(() => { drawMonth(front.ctx, st.current.offset); front.texture.needsUpdate = true; });
-  }, [front]);
-  const m = useMemo(() => ({
-    paper: new THREE.MeshStandardMaterial({ map: front.texture, roughness: 0.8 }),
-    flip: new THREE.MeshStandardMaterial({ map: flip.texture, roughness: 0.8, transparent: true, side: THREE.DoubleSide }),
-    frame: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.4, metalness: 0.5 }),
-  }), [front, flip]);
-
-  // the old page swings out from the wall and up over the top, fading as it goes
-  useFrame((_, dt) => {
-    const s = st.current, g = page.current;
-    if (!g) return;
-    if (s.t < 0) { g.visible = false; return; }
-    s.t += dt;
-    const k = Math.min(1, s.t / 0.9), e = k * k * (3 - 2 * k);
-    g.visible = k < 1;
-    g.rotation.x = -e * Math.PI * 0.95;
-    m.flip.opacity = 1 - Math.max(0, (k - 0.6) / 0.4);
-    if (k >= 1) s.t = -1;
-  });
-
-  const next = () => {
-    const s = st.current;
-    drawMonth(flip.ctx, s.offset); flip.texture.needsUpdate = true;
-    s.offset = (s.offset + 1) % 3;
-    drawMonth(front.ctx, s.offset); front.texture.needsUpdate = true;
-    s.t = 0;
-  };
-  // a click from across the room comes over to look; up close, a click turns the page
-  const act = () => (useRoom.getState().page === "calendar" ? next() : useRoom.getState().go("calendar"));
-  const label = () =>
-    useRoom.getState().page !== "calendar" ? "CALENDAR · LOOK CLOSER" : st.current.offset === 2 ? "CALENDAR · BACK TO THIS MONTH" : "CALENDAR · NEXT MONTH";
-
-  return (
-    <group ref={ref} position={[0.85, 1.5, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable(label, act)}>
-      <mesh position={[0, 0, 0.006]} castShadow material={m.frame}><primitive object={soft(POSTER.w + 0.016, POSTER.h + 0.016, 0.012, 0.004)} attach="geometry" /></mesh>
-      <mesh position={[0, 0, 0.0125]} material={m.paper}><planeGeometry args={[POSTER.w, POSTER.h]} /></mesh>
-      <group ref={page} position={[0, POSTER.h / 2, 0.0135]}>
-        <mesh position={[0, -POSTER.h / 2, 0]} material={m.flip}><planeGeometry args={[POSTER.w, POSTER.h]} /></mesh>
-      </group>
-    </group>
-  );
 }

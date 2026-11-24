@@ -146,7 +146,7 @@ export default function Room() {
   );
 }
 
-/** the way out, in the back wall: a charcoal door in a white casing */
+/** the way out, in the back wall: a charcoal door in a white casing, the light switch beside it */
 function Door({ m }: { m: { trim: THREE.Material; door: THREE.Material; brass: THREE.Material } }) {
   const x = 1.9, w = 0.86, h = 2.05, z = ROOM.z1;
   return (
@@ -162,6 +162,9 @@ function Door({ m }: { m: { trim: THREE.Material; door: THREE.Material; brass: T
       <mesh position={[x - w / 2 + 0.08 - 0.05, 1.02, z - 0.035]} rotation-x={Math.PI / 2} material={m.brass}>
         <cylinderGeometry args={[0.022, 0.022, 0.012, 20]} />
       </mesh>
+      {/* the light switch, on the handle side */}
+      <mesh position={[x - w / 2 - 0.2, 1.15, z - 0.005]} castShadow material={m.trim}><primitive object={soft(0.08, 0.12, 0.01, 0.004)} attach="geometry" /></mesh>
+      <mesh position={[x - w / 2 - 0.2, 1.15, z - 0.0115]} rotation-x={0.06} material={m.trim}><primitive object={soft(0.034, 0.056, 0.006, 0.002)} attach="geometry" /></mesh>
     </group>
   );
 }
