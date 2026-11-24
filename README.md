@@ -10,7 +10,8 @@ and an info card opens beside it. The same content is also a plain page (the **L
 screen readers and slow GPUs.
 
 Built with Next.js 16 (static export), React Three Fiber and three.js. Everything is drawn in code: there are no 3D
-models, textures or audio files.
+models, textures or audio files. The one recording, the song, plays in YouTube's own player from the artist's official
+upload, and the page only loads that player when a visitor presses play.
 
 Live at **https://mnhatdaous.github.io/portfolio/**
 
@@ -33,7 +34,7 @@ and serve `out/` at `/portfolio/`.
 ## Change the content
 
 Everything the site says is in [`content/profile.ts`](content/profile.ts): the jobs (one sticky note each), the
-builds (index cards), the skills (one book each), the links, and the song the bottom bar links to. Both the room and
+builds (index cards), the skills (one book each), the links, and the song the bottom bar plays (a YouTube video id). Both the room and
 the plain page read from it.
 
 Still to do:
@@ -82,6 +83,7 @@ which reads as far away.
 | `components/room/Experience.tsx` | the canvas, keyboard, back/forward |
 | `components/room/store.ts` | page state, selection, lamps |
 | `components/room/hud/Hud.tsx` | menu, cards, hover labels, the welcome gate |
+| `components/room/hud/Music.tsx` | the song: its button in the bottom bar and the YouTube player card it opens |
 | `components/room/scene/` | the room, the desk and its things, the cat, the board, the shelves, the view outside |
 | `components/room/lib/audio.ts` | wind in the trees, birds, the lake, the cat's purr and meow, all made with Web Audio |
 

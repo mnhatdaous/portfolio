@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { allSkills, builds, jobs, liveLinks, profile, skillGroups, song, usedAt, type Build, type Job } from "@/content/profile";
+import { allSkills, builds, jobs, liveLinks, profile, skillGroups, usedAt, type Build, type Job } from "@/content/profile";
 import { STATIONS } from "../camera/stations";
 import { sound } from "../lib/audio";
 import { layout, MENU, narrow, useRoom, WORK_ITEMS, type Page } from "../store";
+import Music from "./Music";
 
 const saigonTime = () => new Intl.DateTimeFormat("en-GB", { timeZone: profile.timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
 
@@ -298,12 +299,7 @@ export default function Hud() {
         {page === "calendar" && <span className="hint frost">Click the calendar for the next month · click outside or Esc to come back</span>}
         {page === "library" && <span className="hint frost">Click outside or Esc to come back</span>}
         <span className="spacer" />
-        <a className="pill frost" href={song.href} target="_blank" rel="noopener noreferrer" aria-label={`${song.title} by ${song.artist}, on YouTube`}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" />
-          </svg>
-          <span className="lbl">{song.title} · {song.artist} ↗</span>
-        </a>
+        <Music />
         <button className="pill frost" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 9h4l5-4v14l-5-4H4z" />

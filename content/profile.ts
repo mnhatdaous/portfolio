@@ -247,8 +247,14 @@ export const links: Link[] = [
 
 export const liveLinks = () => links.filter((l) => l.href);
 
-/** the room's song: linked from the bottom bar, and it opens on YouTube rather than playing here */
-export const song = { title: "Hong Kong", artist: "The Weeknd", href: "https://www.youtube.com/watch?v=hX9S94XsySk" };
+/** the room's song: the bottom bar plays it in the page, in YouTube's own player, from the artist's official upload.
+ * `youtube` is the video's id; `href` is its page on YouTube, for when the player can't load. */
+export const song = {
+  title: "River Flows in You",
+  artist: "Yiruma",
+  youtube: "7maJOI3QMu0",
+  href: "https://www.youtube.com/watch?v=7maJOI3QMu0",
+};
 
 /** where a skill was used: its name (or an alias) in a job's tech list, or written in that job's description */
 export function usedAt(skill: Skill): Job[] {
