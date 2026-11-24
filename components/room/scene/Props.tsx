@@ -201,7 +201,7 @@ export function ReadingCorner() {
       roughness: 1, sheen: 0.5, sheenColor: new THREE.Color("#fff3dc"),
     }),
     pillow: new THREE.MeshPhysicalMaterial({ color: "#c0663a", roughness: 0.95, sheen: 0.5, sheenColor: new THREE.Color("#e9a27a") }),
-    oak: new THREE.MeshStandardMaterial({ color: "#c9a06c", roughness: 0.5 }),
+    steel: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
     metal: new THREE.MeshStandardMaterial({ color: "#2b2a28", roughness: 0.4, metalness: 0.7 }),
     shade: new THREE.MeshStandardMaterial({ color: "#efe2c6", emissive: new THREE.Color("#ffcf96"), emissiveIntensity: 0, roughness: 0.9, side: THREE.DoubleSide }),
   }), []);
@@ -226,7 +226,7 @@ export function ReadingCorner() {
       {/* an armchair turned toward the windows: soft cushions, a pillow, a blanket folded over one arm */}
       <group position={CORNER} rotation-y={2.68}>
         {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-          <mesh key={`${sx}${sz}`} position={[sx * 0.3, 0.07, sz * 0.27]} rotation={[-sz * 0.12, 0, sx * 0.12]} castShadow material={m.oak}>
+          <mesh key={`${sx}${sz}`} position={[sx * 0.3, 0.07, sz * 0.27]} rotation={[-sz * 0.12, 0, sx * 0.12]} castShadow material={m.steel}>
             <cylinderGeometry args={[0.017, 0.011, 0.15, 10]} />
           </mesh>
         ))}

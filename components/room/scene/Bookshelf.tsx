@@ -6,11 +6,11 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { allSkills } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
-import { canvasTexture, FONT, fontsReady, rng, woodTexture } from "../lib/textures";
+import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { Pothos } from "./Props";
-import { OAK, ROOM } from "./Room";
+import { ROOM } from "./Room";
 
 // Stack: a bookshelf on the right wall, one book a skill. Local coordinates: x along the wall as the camera sees it,
 // y up, z out of the shelf into the room.
@@ -101,8 +101,9 @@ export default function Bookshelf() {
   const m = useMemo(() => {
     const pages = new THREE.MeshStandardMaterial({ color: "#e9dfc9", roughness: 0.9 });
     return {
-      wood: new THREE.MeshStandardMaterial({ map: woodTexture(17, OAK, [1, 1]), roughness: 0.55 }),
-      back: new THREE.MeshStandardMaterial({ color: "#e6dccb", roughness: 0.85 }),
+      wood: new THREE.MeshStandardMaterial({ color: "#efeeea", roughness: 0.55 }),
+      steel: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
+      back: new THREE.MeshStandardMaterial({ color: "#e4e2dd", roughness: 0.85 }),
       books: books.map((b, k) => {
         const cover = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.7 });
         const spine = new THREE.MeshStandardMaterial({ map: spines[k].texture, roughness: 0.65 });
@@ -137,7 +138,7 @@ export default function Bookshelf() {
     <group ref={ref} position={[ROOM.x1 - DEPTH / 2, 0, 1.3]} rotation-y={-Math.PI / 2}>
       <group {...clickable("BOOKSHELF · STACK", () => useRoom.getState().go("stack"))}>
         {[-1, 1].map((s) => (
-          <mesh key={s} position={[s * (WIDTH / 2 - 0.0125), top / 2, 0]} castShadow receiveShadow material={m.wood}>
+          <mesh key={s} position={[s * (WIDTH / 2 - 0.0125), top / 2, 0]} castShadow receiveShadow material={m.steel}>
             <primitive object={soft(0.025, top, DEPTH)} attach="geometry" />
           </mesh>
         ))}
@@ -194,7 +195,7 @@ const LIB_COLORS = ["#f1ece2", "#e9e2d2", "#2f4a6b", "#c4733c", "#20242b", "#a9b
 export function Library() {
   const W = LIB.x1 - LIB.x0, step = (LIB.h - 0.05) / (LIB.boards - 1);
   const m = useMemo(() => ({
-    wood: new THREE.MeshStandardMaterial({ map: woodTexture(29, OAK, [1, 1]), roughness: 0.55 }),
+    wood: new THREE.MeshStandardMaterial({ color: "#efeeea", roughness: 0.6 }),
     books: new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.75 }),
     vase: new THREE.MeshStandardMaterial({ color: "#f3efe8", roughness: 0.3 }),
     clay: new THREE.MeshStandardMaterial({ color: "#c98a5e", roughness: 0.8 }),

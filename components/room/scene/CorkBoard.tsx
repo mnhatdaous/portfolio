@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { builds, jobs } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
-import { canvasTexture, corkTexture, FONT, fontsReady, rng, woodTexture } from "../lib/textures";
+import { canvasTexture, corkTexture, FONT, fontsReady, rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { ROOM } from "./Room";
@@ -144,7 +144,7 @@ export default function CorkBoard() {
 
   const m = useMemo(() => ({
     cork: new THREE.MeshStandardMaterial({ map: corkTexture(), roughness: 0.95 }),
-    frame: new THREE.MeshStandardMaterial({ map: woodTexture(12, "#b98a58", [2, 1]), roughness: 0.5 }),
+    frame: new THREE.MeshStandardMaterial({ color: "#26282b", roughness: 0.5, metalness: 0.3 }),
     notes: tex.notes.map((t) => new THREE.MeshStandardMaterial({ map: t.texture, roughness: 0.85 })),
     title: new THREE.MeshStandardMaterial({ map: tex.title.texture, roughness: 0.9 }),
     polaroid: new THREE.MeshStandardMaterial({ map: tex.polaroid.texture, roughness: 0.6 }),

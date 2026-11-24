@@ -74,7 +74,7 @@ export default function Room() {
       glass: new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.02, depthWrite: false }),
       rug: new THREE.MeshStandardMaterial({ map: rugTexture(), roughness: 0.95 }),
       door: new THREE.MeshStandardMaterial({ color: "#ebe4d8", roughness: 0.7 }),
-      brass: new THREE.MeshStandardMaterial({ color: "#b8925a", roughness: 0.3, metalness: 0.8 }),
+      brass: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
     };
   }, []);
   // at home the glass takes you to the window; from anywhere else a click on the view is a click outside
@@ -120,7 +120,7 @@ export default function Room() {
       </mesh>
 
       <Door m={m} />
-      <Chair material={m.oak} />
+      <Chair />
     </group>
   );
 }
@@ -145,24 +145,24 @@ function Door({ m }: { m: { oak: THREE.Material; door: THREE.Material; brass: TH
   );
 }
 
-/** a light oak chair at the desk, its back a bent slat */
-function Chair({ material }: { material: THREE.Material }) {
-  const legs: [number, number][] = [[-0.19, -0.18], [0.19, -0.18], [-0.19, 0.18], [0.19, 0.18]];
-  const back = useMemo(() => curvedSlat(0.42, 0.02, 1.05, 0.14), []);
+/** a molded chair at the desk: a white seat and a curved back, on slim black legs splayed a little */
+function Chair() {
+  const m = useMemo(() => ({
+    shell: new THREE.MeshStandardMaterial({ color: "#ecebe6", roughness: 0.42 }),
+    steel: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
+  }), []);
+  const back = useMemo(() => curvedSlat(0.3, 0.012, 1.45, 0.26), []);
   return (
     <group position={[0.08, 0, -1.25]} rotation-y={0.12}>
-      <mesh position={[0, 0.46, 0]} castShadow receiveShadow material={material}><primitive object={soft(0.44, 0.03, 0.42)} attach="geometry" /></mesh>
-      {legs.map(([x, z]) => (
-        <mesh key={`${x}${z}`} position={[x, 0.23, z]} rotation-x={z * 0.12} castShadow material={material}>
-          <cylinderGeometry args={[0.016, 0.012, 0.46, 10]} />
+      <mesh position={[0, 0.455, 0]} castShadow receiveShadow material={m.shell}><primitive object={soft(0.46, 0.03, 0.44, 0.015)} attach="geometry" /></mesh>
+      <group position={[0, 0.62, 0.2]} rotation-x={-0.15}>
+        <mesh geometry={back} position={[0, 0, -0.306]} castShadow receiveShadow material={m.shell} />
+      </group>
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+        <mesh key={`${sx}${sz}`} position={[sx * 0.18, 0.22, sz * 0.17]} rotation={[-sz * 0.1, 0, sx * 0.1]} castShadow material={m.steel}>
+          <cylinderGeometry args={[0.009, 0.007, 0.45, 8]} />
         </mesh>
       ))}
-      {[-0.19, 0.19].map((x) => (
-        <mesh key={x} position={[x, 0.7, 0.19]} rotation-x={-0.1} castShadow material={material}><cylinderGeometry args={[0.015, 0.015, 0.48, 10]} /></mesh>
-      ))}
-      <group position={[0, 0.84, 0.215]} rotation-x={-0.1}>
-        <mesh geometry={back} position={[0, 0, -0.43]} castShadow receiveShadow material={material} />
-      </group>
     </group>
   );
 }

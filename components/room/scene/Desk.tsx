@@ -2,9 +2,9 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { solid } from "../lib/interact";
-import { rng, woodTexture } from "../lib/textures";
+import { rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
-import { OAK, ROOM } from "./Room";
+import { ROOM } from "./Room";
 
 export const DESK_Y = 0.74;
 /** a long built-in desk under the big window */
@@ -145,27 +145,37 @@ function SnakePlant() {
 
 export default function Desk() {
   const m = useMemo(() => ({
-    top: new THREE.MeshStandardMaterial({ map: woodTexture(4, OAK, [2.2, 1]), roughness: 0.45 }),
-    side: new THREE.MeshStandardMaterial({ map: woodTexture(5, "#cda06b", [0.4, 1]), roughness: 0.5 }),
-    knob: new THREE.MeshStandardMaterial({ color: "#2b2b2b", roughness: 0.4, metalness: 0.5 }),
+    top: new THREE.MeshStandardMaterial({ color: "#efeee9", roughness: 0.45 }),
+    body: new THREE.MeshStandardMaterial({ color: "#e6e4df", roughness: 0.6 }),
+    steel: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
   }), []);
-  const w = DESK.x1 - DESK.x0, d = DESK.z1 - DESK.z0, legH = DESK_Y - 0.04;
+  const w = DESK.x1 - DESK.x0, d = DESK.z1 - DESK.z0, T = 0.03, legH = DESK_Y - T;
+  // a matte white top on two black steel frames, and a drawer unit on casters
   return (
     <group>
-      <mesh position={[(DESK.x0 + DESK.x1) / 2, DESK_Y - 0.02, ZC]} castShadow receiveShadow material={m.top} {...solid}>
-        <primitive object={soft(w, 0.04, d)} attach="geometry" />
+      <mesh position={[(DESK.x0 + DESK.x1) / 2, DESK_Y - T / 2, ZC]} castShadow receiveShadow material={m.top} {...solid}>
+        <primitive object={soft(w, T, d)} attach="geometry" />
       </mesh>
-      {/* drawers at the left end, a panel at the right */}
-      <group position={[DESK.x0 + 0.26, 0, ZC + 0.015]}>
-        <mesh position={[0, legH / 2, 0]} castShadow receiveShadow material={m.side}><primitive object={soft(0.48, legH, d - 0.03)} attach="geometry" /></mesh>
-        {[0, 1, 2].map((k) => (
-          <group key={k} position={[0, 0.12 + k * 0.22, (d - 0.03) / 2]}>
-            <mesh position={[0, 0, 0.006]} castShadow material={m.top}><primitive object={soft(0.45, 0.2, 0.012)} attach="geometry" /></mesh>
-            <mesh position={[0, 0.05, 0.018]} rotation-z={Math.PI / 2} material={m.knob}><cylinderGeometry args={[0.005, 0.005, 0.12, 8]} /></mesh>
-          </group>
+      {[DESK.x0 + 0.08, DESK.x1 - 0.08].map((x) => (
+        <group key={x} position={[x, 0, ZC]}>
+          {[-1, 1].map((sz) => (
+            <mesh key={sz} position={[0, legH / 2, sz * (d / 2 - 0.05)]} castShadow material={m.steel}><primitive object={soft(0.03, legH, 0.03, 0.004)} attach="geometry" /></mesh>
+          ))}
+          <mesh position={[0, legH - 0.015, 0]} castShadow material={m.steel}><primitive object={soft(0.03, 0.03, d - 0.08, 0.004)} attach="geometry" /></mesh>
+          <mesh position={[0, 0.015, 0]} castShadow material={m.steel}><primitive object={soft(0.03, 0.03, d - 0.04, 0.004)} attach="geometry" /></mesh>
+        </group>
+      ))}
+      <mesh position={[(DESK.x0 + DESK.x1) / 2, legH - 0.04, DESK.z0 + 0.06]} castShadow material={m.steel}><primitive object={soft(w - 0.16, 0.05, 0.02, 0.004)} attach="geometry" /></mesh>
+      {/* the drawers: handle-less fronts with a grip line under each top edge */}
+      <group position={[DESK.x0 + 0.42, 0, ZC + 0.04]}>
+        <mesh position={[0, 0.34, 0]} castShadow receiveShadow material={m.body}><primitive object={soft(0.42, 0.58, 0.52)} attach="geometry" /></mesh>
+        {[0.615, 0.425, 0.235].map((y) => (
+          <mesh key={y} position={[0, y, 0.261]} material={m.steel}><primitive object={soft(0.36, 0.008, 0.004, 0.0015)} attach="geometry" /></mesh>
+        ))}
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+          <mesh key={`${sx}${sz}`} position={[sx * 0.17, 0.025, sz * 0.2]} castShadow material={m.steel}><sphereGeometry args={[0.025, 14, 10]} /></mesh>
         ))}
       </group>
-      <mesh position={[DESK.x1 - 0.02, legH / 2, ZC]} castShadow receiveShadow material={m.side}><primitive object={soft(0.036, legH, d - 0.02)} attach="geometry" /></mesh>
 
       <Books seed={3} x={-1.27} z={-2.06} n={5} rot={0.2} />
       <Books seed={9} x={1.04} z={-2.07} n={3} rot={-0.3}>{(top) => <group position={[0, top, 0]}><Glasses /></group>}</Books>
