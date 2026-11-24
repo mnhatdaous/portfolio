@@ -88,32 +88,6 @@ export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w
 }
 
 // ---------------------------------------------------------------- surfaces
-export function woodTexture(seed = 1, base = "#7a4a2a", repeat?: [number, number]) {
-  return canvasTexture(1024, 256, (ctx, w, h) => {
-    const r = rng(seed);
-    ctx.fillStyle = base;
-    ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 140; i++) {
-      const y = r() * h;
-      ctx.strokeStyle = `rgba(${r() < 0.5 ? "40,20,8" : "160,110,70"},${0.05 + r() * 0.12})`;
-      ctx.lineWidth = 0.6 + r() * 2.2;
-      ctx.beginPath();
-      const amp = 2 + r() * 6, f = 0.004 + r() * 0.01, ph = r() * 6;
-      for (let x = 0; x <= w; x += 16) ctx.lineTo(x, y + Math.sin(x * f + ph) * amp);
-      ctx.stroke();
-    }
-    for (let k = 0; k < 3; k++) {
-      const x = r() * w, y = r() * h, g = ctx.createRadialGradient(x, y, 1, x, y, 10 + r() * 14);
-      g.addColorStop(0, "rgba(40,20,8,.55)");
-      g.addColorStop(1, "rgba(40,20,8,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(x, y, 26, 9, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }, { repeat }).texture;
-}
-
 export function plasterTexture(base = "#9fbfae", repeat: [number, number] = [2, 2], seed = 7) {
   return canvasTexture(512, 512, (ctx, w, h) => {
     const r = rng(seed);
@@ -149,32 +123,34 @@ export function corkTexture() {
   }, { repeat: [1.6, 1.1] }).texture;
 }
 
-/** floorboards: six boards of slightly different tone, each cut once, with grain and fine gaps; the floor repeats it */
-export function planksTexture(base = "#cfa673", repeat: [number, number] = [1, 1], seed = 13) {
-  return canvasTexture(1024, 1024, (ctx, w, h) => {
-    const r = rng(seed), n = 6, bw = w / n, tone = new THREE.Color(base);
-    for (let b = 0; b < n; b++) {
-      const x0 = b * bw, cut = h * (0.2 + r() * 0.6);
-      for (const [y0, y1] of [[0, cut], [cut, h]]) {
-        const c = tone.clone().offsetHSL((r() - 0.5) * 0.012, (r() - 0.5) * 0.05, (r() - 0.5) * 0.05);
-        ctx.fillStyle = `#${c.getHexString()}`;
-        ctx.fillRect(x0, y0, bw, y1 - y0);
-        for (let i = 0; i < 24; i++) {
-          const gx = x0 + r() * bw;
-          ctx.strokeStyle = `rgba(${r() < 0.55 ? "110,70,35" : "255,240,215"},${0.04 + r() * 0.07})`;
-          ctx.lineWidth = 0.6 + r() * 1.6;
-          ctx.beginPath();
-          const amp = 1 + r() * 3.5, f = 0.004 + r() * 0.012, ph = r() * 6;
-          for (let y = y0; y <= y1; y += 16) ctx.lineTo(gx + Math.sin(y * f + ph) * amp, y);
-          ctx.stroke();
-        }
-        ctx.fillStyle = "rgba(90,60,30,.32)";
-        ctx.fillRect(x0, y0, bw, 2);
-      }
-      ctx.fillStyle = "rgba(90,60,30,.4)";
-      ctx.fillRect(x0, 0, 2, h);
+/** polished concrete: a pale warm grey with soft clouds, fine grit and a few faint trowel arcs. It covers the whole
+ * floor once, so there's no seam to repeat. */
+export function concreteTexture() {
+  return canvasTexture(2048, 2048, (ctx, w, h) => {
+    const r = rng(29);
+    ctx.fillStyle = "#cdc9c2";
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) {
+      const x = r() * w, y = r() * h, rad = 120 + r() * 520;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad), c = r() < 0.5 ? "255,252,245" : "118,110,100";
+      g.addColorStop(0, `rgba(${c},${0.04 + r() * 0.06})`);
+      g.addColorStop(1, `rgba(${c},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
     }
-  }, { repeat, anisotropy: 16 }).texture;
+    for (let i = 0; i < 90000; i++) {
+      ctx.fillStyle = `rgba(${r() < 0.5 ? "60,55,50" : "255,255,250"},${r() * 0.08})`;
+      ctx.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2);
+    }
+    for (let i = 0; i < 18; i++) {
+      ctx.strokeStyle = `rgba(255,250,240,${0.025 + r() * 0.035})`;
+      ctx.lineWidth = 10 + r() * 30;
+      const cx = r() * w, cy = r() * h, rad = 300 + r() * 700, a = r() * 6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, a, a + 0.4 + r() * 0.6);
+      ctx.stroke();
+    }
+  }, { anisotropy: 16 }).texture;
 }
 
 /** a flat-woven rug: oatmeal, a rust and slate border, rows of small diamonds */

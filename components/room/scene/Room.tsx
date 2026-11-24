@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { BACK_LABEL, clickable, clickOutside, solid } from "../lib/interact";
-import { planksTexture, plasterTexture, rugTexture, woodTexture } from "../lib/textures";
+import { concreteTexture, plasterTexture, rugTexture } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 
@@ -16,7 +16,6 @@ export const ROOM = { x0: -2.3, x1: 2.3, z0: -2.3, z1: 2.3, h: 2.85 };
 export const WALL_T = 0.16;
 /** the big window's sill and head; the side windows start lower and run back to z = sideZ1 */
 export const WIN = { y0: 0.8, y1: 2.5, sideY0: 0.5, sideZ1: 0.35 };
-export const OAK = "#d3a774";
 
 type V3 = [number, number, number];
 const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h, T = WALL_T;
@@ -35,22 +34,37 @@ const WALLS: { p: V3; s: V3; face: [number, number] }[] = [
   { p: [0, H / 2, ROOM.z1 + T / 2], s: [W + 2 * T, H, T], face: [W, H] },
 ];
 
-/** the oak that lines the window openings: sills, heads, the corner posts, mullions */
-const LINING: { p: V3; s: V3 }[] = [
+type Box = { p: V3; s: V3 };
+const SIDE_H = WIN.y1 - WIN.sideY0, SIDE_C = (WIN.sideY0 + WIN.y1) / 2, BAR = 0.035;
+
+/** the window openings: stone sills, white linings at the heads and ends */
+const SILLS: Box[] = [
   { p: [0, WIN.y0 + 0.012, ROOM.z0 - T / 2 + 0.015], s: [W, 0.024, T + 0.03] },
+  ...SIDES.map(({ s, x }) => ({ p: [x - s * 0.015, WIN.sideY0 + 0.012, SIDE_MID] as V3, s: [T + 0.03, 0.024, SIDE_LEN] as V3 })),
+];
+const LININGS: Box[] = [
   { p: [0, WIN.y1 - 0.012, ROOM.z0 - T / 2], s: [W, 0.024, T] },
-  ...[-0.95, 0.95].map((x) => ({ p: [x, (WIN.y0 + WIN.y1) / 2, ROOM.z0 - T / 2] as V3, s: [0.06, WIN.y1 - WIN.y0, T * 0.75] as V3 })),
-  ...SIDES.flatMap(({ s, x }) => [
-    { p: [x - s * 0.015, WIN.sideY0 + 0.012, SIDE_MID] as V3, s: [T + 0.03, 0.024, SIDE_LEN] as V3 },
+  ...SIDES.flatMap(({ x }) => [
     { p: [x, WIN.y1 - 0.012, SIDE_MID] as V3, s: [T, 0.024, SIDE_LEN] as V3 },
-    { p: [x, (WIN.sideY0 + WIN.y1) / 2, WIN.sideZ1 - 0.012] as V3, s: [T, WIN.y1 - WIN.sideY0, 0.024] as V3 },
-    { p: [x, (WIN.sideY0 + WIN.y1) / 2, SIDE_MID] as V3, s: [T * 0.75, WIN.y1 - WIN.sideY0, 0.06] as V3 },
-    { p: [x, (WIN.sideY0 + WIN.y1) / 2, ROOM.z0 - T / 2] as V3, s: [T + 0.03, WIN.y1 - WIN.sideY0, T + 0.03] as V3 },
+    { p: [x, SIDE_C, WIN.sideZ1 - 0.012] as V3, s: [T, SIDE_H, 0.024] as V3 },
+  ]),
+];
+/** slim black frames at the glass: mullions, a post in each front corner, bars along every edge */
+const FRAMES: Box[] = [
+  ...[-0.95, 0.95].map((x) => ({ p: [x, (WIN.y0 + WIN.y1) / 2, ROOM.z0 - T / 2] as V3, s: [0.045, WIN.y1 - WIN.y0, 0.07] as V3 })),
+  { p: [0, WIN.y0 + 0.024 + BAR / 2, ROOM.z0 - T / 2], s: [W, BAR, 0.06] },
+  { p: [0, WIN.y1 - 0.024 - BAR / 2, ROOM.z0 - T / 2], s: [W, BAR, 0.06] },
+  ...SIDES.flatMap(({ s, x }) => [
+    { p: [x, SIDE_C, SIDE_MID] as V3, s: [0.07, SIDE_H, 0.045] as V3 },
+    { p: [s < 0 ? ROOM.x0 - 0.06 : ROOM.x1 + 0.06, SIDE_C, ROOM.z0 - 0.06] as V3, s: [0.12, SIDE_H, 0.12] as V3 },
+    { p: [x, WIN.sideY0 + 0.024 + BAR / 2, SIDE_MID] as V3, s: [0.06, BAR, SIDE_LEN] as V3 },
+    { p: [x, WIN.y1 - 0.024 - BAR / 2, SIDE_MID] as V3, s: [0.06, BAR, SIDE_LEN] as V3 },
+    { p: [x, SIDE_C, WIN.sideZ1 - 0.024 - BAR / 2] as V3, s: [0.06, SIDE_H, BAR] as V3 },
   ]),
 ];
 
 /** skirting boards along the solid walls */
-const SKIRTING: { p: V3; s: V3 }[] = [
+const SKIRTING: Box[] = [
   { p: [0, 0.035, ROOM.z1 - 0.008], s: [W, 0.07, 0.016] },
   { p: [0, 0.035, ROOM.z0 + 0.008], s: [W, 0.07, 0.016] },
   ...SIDES.map(({ s }) => ({ p: [s < 0 ? ROOM.x0 + 0.008 : ROOM.x1 - 0.008, 0.035, (WIN.sideZ1 + ROOM.z1) / 2] as V3, s: [0.016, 0.07, ROOM.z1 - WIN.sideZ1] as V3 })),
@@ -69,12 +83,14 @@ export default function Room() {
     const plaster = plasterTexture("#efe7da", [1, 1], 7);
     return {
       walls: WALLS.map((w) => new THREE.MeshStandardMaterial({ map: repeated(plaster, w.face[0] / 1.4, w.face[1] / 1.4), roughness: 0.95 })),
-      floor: new THREE.MeshStandardMaterial({ map: planksTexture("#cfa673", [W / 1.1, D / 2.2]), roughness: 0.55 }),
+      floor: new THREE.MeshStandardMaterial({ map: concreteTexture(), roughness: 0.42 }),
       ceil: new THREE.MeshStandardMaterial({ color: "#f2ebe0", roughness: 1 }),
-      oak: new THREE.MeshStandardMaterial({ map: woodTexture(21, OAK, [1, 1]), roughness: 0.5 }),
+      trim: new THREE.MeshStandardMaterial({ color: "#f3f0ea", roughness: 0.75 }),
+      stone: new THREE.MeshStandardMaterial({ color: "#d9d6cf", roughness: 0.45 }),
+      frame: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.4, metalness: 0.55 }),
       glass: new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.02, depthWrite: false }),
       rug: new THREE.MeshStandardMaterial({ map: rugTexture(), roughness: 0.95 }),
-      door: new THREE.MeshStandardMaterial({ color: "#ebe4d8", roughness: 0.7 }),
+      door: new THREE.MeshStandardMaterial({ color: "#4a4d52", roughness: 0.6 }),
       brass: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
     };
   }, []);
@@ -98,11 +114,13 @@ export default function Room() {
           <boxGeometry args={w.s} />
         </mesh>
       ))}
-      {[...LINING, ...SKIRTING].map((b, i) => (
-        <mesh key={i} position={b.p} castShadow receiveShadow material={m.oak}>
-          <primitive object={soft(...b.s)} attach="geometry" />
-        </mesh>
-      ))}
+      {([[SILLS, m.stone], [[...LININGS, ...SKIRTING], m.trim], [FRAMES, m.frame]] as const).flatMap(([boxes, mat], k) =>
+        boxes.map((b, i) => (
+          <mesh key={`${k}-${i}`} position={b.p} castShadow receiveShadow material={mat}>
+            <primitive object={soft(...b.s)} attach="geometry" />
+          </mesh>
+        )),
+      )}
 
       {/* the glass: barely there, but it's what a click on the view lands on */}
       <group {...lookOut}>
@@ -126,16 +144,16 @@ export default function Room() {
   );
 }
 
-/** the way out, in the back wall: a painted door in an oak casing */
-function Door({ m }: { m: { oak: THREE.Material; door: THREE.Material; brass: THREE.Material } }) {
+/** the way out, in the back wall: a charcoal door in a white casing */
+function Door({ m }: { m: { trim: THREE.Material; door: THREE.Material; brass: THREE.Material } }) {
   const x = 1.4, w = 0.86, h = 2.05, z = ROOM.z1;
   return (
     <group>
       <mesh position={[x, h / 2, z - 0.014]} castShadow receiveShadow material={m.door}><primitive object={soft(w, h, 0.03)} attach="geometry" /></mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[x + s * (w / 2 + 0.03), h / 2 + 0.03, z - 0.012]} castShadow material={m.oak}><primitive object={soft(0.06, h + 0.06, 0.026)} attach="geometry" /></mesh>
+        <mesh key={s} position={[x + s * (w / 2 + 0.03), h / 2 + 0.03, z - 0.012]} castShadow material={m.trim}><primitive object={soft(0.06, h + 0.06, 0.026)} attach="geometry" /></mesh>
       ))}
-      <mesh position={[x, h + 0.06, z - 0.012]} castShadow material={m.oak}><primitive object={soft(w + 0.12, 0.06, 0.026)} attach="geometry" /></mesh>
+      <mesh position={[x, h + 0.06, z - 0.012]} castShadow material={m.trim}><primitive object={soft(w + 0.12, 0.06, 0.026)} attach="geometry" /></mesh>
       <mesh position={[x - w / 2 + 0.08, 1.02, z - 0.045]} rotation-z={Math.PI / 2} castShadow material={m.brass}>
         <cylinderGeometry args={[0.009, 0.009, 0.12, 12]} />
       </mesh>
