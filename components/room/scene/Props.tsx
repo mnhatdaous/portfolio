@@ -240,7 +240,7 @@ function monsteraLeaf() {
 export function Monstera() {
   const leafGeo = useMemo(monsteraLeaf, []);
   const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#f0ece4", roughness: 0.35 }),
+    pot: new THREE.MeshStandardMaterial({ color: "#f0ece4", roughness: 0.35, side: THREE.DoubleSide }),
     soil: new THREE.MeshStandardMaterial({ color: "#3a2a1e", roughness: 1 }),
     leaf: new THREE.MeshStandardMaterial({ color: "#2f6a3c", roughness: 0.5, side: THREE.DoubleSide }),
     stem: new THREE.MeshStandardMaterial({ color: "#4f7a3c", roughness: 0.6 }),
@@ -255,8 +255,8 @@ export function Monstera() {
   }, []);
   return (
     <group position={[-1.88, 0, -1.72]}>
-      <mesh position={[0, 0.17, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.19, 0.15, 0.34, 32]} /></mesh>
-      <mesh position={[0, 0.335, 0]} material={m.soil}><cylinderGeometry args={[0.175, 0.175, 0.01, 24]} /></mesh>
+      <mesh position={[0, 0.17, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.19, 0.15, 0.34, 32, 1, true]} /></mesh>
+      <mesh position={[0, 0.315, 0]} material={m.soil}><cylinderGeometry args={[0.185, 0.185, 0.01, 32]} /></mesh>
       {leaves.map((l, i) => {
         const base = new THREE.Vector3(0, 0.33, 0), d = l.tip.clone().sub(base);
         const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
@@ -278,7 +278,7 @@ export function Pothos({ position, vines = 3, length = 6, rotation = 0 }: { posi
   const leaf = useMemo(heartLeaf, []);
   const greens = useMemo(() => ["#3f7d3a", "#4f8f3f", "#5f9b43", "#3a6e34"].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, side: THREE.DoubleSide })), []);
   const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#c27a52", roughness: 0.85 }),
+    pot: new THREE.MeshStandardMaterial({ color: "#c27a52", roughness: 0.85, side: THREE.DoubleSide }),
     soil: new THREE.MeshStandardMaterial({ color: "#2b1d14", roughness: 1 }),
   }), []);
   const leaves = useMemo(() => {
@@ -307,8 +307,8 @@ export function Pothos({ position, vines = 3, length = 6, rotation = 0 }: { posi
   });
   return (
     <group position={position} rotation-y={rotation} {...clickable("POTHOS · RUSTLE", () => { rustle.current = 1; })}>
-      <mesh position={[0, 0.05, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.065, 0.048, 0.1, 24]} /></mesh>
-      <mesh position={[0, 0.097, 0]} material={m.soil}><cylinderGeometry args={[0.06, 0.06, 0.006, 24]} /></mesh>
+      <mesh position={[0, 0.05, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.065, 0.048, 0.1, 24, 1, true]} /></mesh>
+      <mesh position={[0, 0.088, 0]} material={m.soil}><cylinderGeometry args={[0.062, 0.062, 0.006, 24]} /></mesh>
       <group ref={group}>
         {leaves.map((l, i) => (
           <mesh key={i} geometry={leaf} material={greens[l.c]} position={l.p} rotation={l.rot} scale={l.s} castShadow userData={{ rz: l.rot[2] }} />
@@ -322,7 +322,8 @@ export function Pothos({ position, vines = 3, length = 6, rotation = 0 }: { posi
 export function RubberPlant() {
   const leaf = useMemo(heartLeaf, []);
   const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#b8663f", roughness: 0.85 }),
+    pot: new THREE.MeshStandardMaterial({ color: "#b8663f", roughness: 0.85, side: THREE.DoubleSide }),
+    soil: new THREE.MeshStandardMaterial({ color: "#3a2a1e", roughness: 1 }),
     leaf: new THREE.MeshStandardMaterial({ color: "#2c4f33", roughness: 0.4, side: THREE.DoubleSide }),
     stem: new THREE.MeshStandardMaterial({ color: "#5c4a35", roughness: 0.8 }),
   }), []);
@@ -335,7 +336,8 @@ export function RubberPlant() {
   }, []);
   return (
     <group position={[1.9, 0, -1.78]}>
-      <mesh position={[0, 0.16, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.17, 0.13, 0.32, 28]} /></mesh>
+      <mesh position={[0, 0.16, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.17, 0.13, 0.32, 28, 1, true]} /></mesh>
+      <mesh position={[0, 0.3, 0]} material={m.soil}><cylinderGeometry args={[0.165, 0.165, 0.01, 28]} /></mesh>
       <mesh position={[0, 0.78, 0]} castShadow material={m.stem}><cylinderGeometry args={[0.012, 0.016, 0.95, 8]} /></mesh>
       {leaves.map((l, i) => <mesh key={i} geometry={leaf} position={l.p} rotation={l.rot} scale={l.s} castShadow material={m.leaf} />)}
     </group>

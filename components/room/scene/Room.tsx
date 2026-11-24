@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import * as THREE from "three";
-import { clickable, solid } from "../lib/interact";
+import { BACK_LABEL, clickable, clickOutside, solid } from "../lib/interact";
 import { planksTexture, plasterTexture, rugTexture, woodTexture } from "../lib/textures";
 import { useRoom } from "../store";
 
@@ -76,7 +76,11 @@ export default function Room() {
       brass: new THREE.MeshStandardMaterial({ color: "#b8925a", roughness: 0.3, metalness: 0.8 }),
     };
   }, []);
-  const lookOut = clickable("LOOK OUTSIDE", () => useRoom.getState().go("window"));
+  // at home the glass takes you to the window; from anywhere else a click on the view is a click outside
+  const lookOut = clickable(
+    () => (useRoom.getState().page === "home" ? "LOOK OUTSIDE" : BACK_LABEL),
+    () => (useRoom.getState().page === "home" ? useRoom.getState().go("window") : clickOutside()),
+  );
 
   return (
     <group>

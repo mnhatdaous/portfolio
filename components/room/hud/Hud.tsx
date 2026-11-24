@@ -294,7 +294,7 @@ export default function Hud() {
         ) : null}
         <span className="spacer" />
         {page === "home" && <span className="hint frost">Drag to look around. The computer, the board, the bookshelf and the phone open things; the cat likes a pat.</span>}
-        {page === "window" && <span className="hint frost">Drag to look around · Esc to come back</span>}
+        {page === "window" && <span className="hint frost">Drag to look around · click or Esc to come back</span>}
         <span className="spacer" />
         <button className="pill frost" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

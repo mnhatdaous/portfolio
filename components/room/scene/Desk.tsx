@@ -122,7 +122,7 @@ function leafBlade() {
 function SnakePlant() {
   const blade = useMemo(leafBlade, []);
   const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#efe9df", roughness: 0.4 }),
+    pot: new THREE.MeshStandardMaterial({ color: "#efe9df", roughness: 0.4, side: THREE.DoubleSide }),
     soil: new THREE.MeshStandardMaterial({ color: "#3a2a1e", roughness: 1 }),
     leaf: new THREE.MeshStandardMaterial({ color: "#3f6b3e", roughness: 0.6, side: THREE.DoubleSide }),
     edge: new THREE.MeshStandardMaterial({ color: "#a9b25a", roughness: 0.6, side: THREE.DoubleSide }),
@@ -133,8 +133,8 @@ function SnakePlant() {
   }, []);
   return (
     <group position={[-1.02, DESK_Y, -2.14]}>
-      <mesh position={[0, 0.055, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.055, 0.045, 0.11, 24]} /></mesh>
-      <mesh position={[0, 0.108, 0]} material={m.soil}><cylinderGeometry args={[0.05, 0.05, 0.006, 20]} /></mesh>
+      <mesh position={[0, 0.055, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.055, 0.045, 0.11, 24, 1, true]} /></mesh>
+      <mesh position={[0, 0.099, 0]} material={m.soil}><cylinderGeometry args={[0.053, 0.053, 0.006, 20]} /></mesh>
       {leaves.map((l, i) => (
         <mesh key={i} geometry={blade} position={[0, 0.1, 0]} rotation={[l.tilt, l.yaw, 0]} scale={[1, l.s, 1]} castShadow material={l.edge ? m.edge : m.leaf} />
       ))}

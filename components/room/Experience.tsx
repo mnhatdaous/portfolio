@@ -5,6 +5,7 @@ import { profile } from "@/content/profile";
 import { INTRO, look } from "./camera/CameraRig";
 import Hud from "./hud/Hud";
 import { sound } from "./lib/audio";
+import { clickOutside } from "./lib/interact";
 import Scene from "./scene/Scene";
 import { cardWidth, MENU, pageFromHash, useRoom } from "./store";
 
@@ -55,6 +56,7 @@ export default function Experience() {
         dpr={[1, 1.75]}
         gl={{ antialias: false, powerPreference: "high-performance", stencil: false }}
         camera={{ fov: 36, near: 0.03, far: 240, position: [INTRO.pos.x, INTRO.pos.y, INTRO.pos.z] }}
+        onPointerMissed={clickOutside}
       >
         <Suspense fallback={null}>
           <Scene />
