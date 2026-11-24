@@ -2,6 +2,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { profile } from "@/content/profile";
 import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
@@ -160,12 +161,44 @@ export function PendantLamp() {
 // ---------------------------------------------------------------- the reading corner: an armchair and a lamp
 const CORNER = new THREE.Vector3(-1.6, 0, 1.72);
 
+/** a knit throw over the armchair's arm: the arm's rounded top in section, a short fall on the inside and a long one
+ * outside, run along the arm. In the arm's coordinates: x across it (outside is -x), y up, centred on z. */
+function blanketOverArm() {
+  const c = 0.548, ro = 0.072, ri = 0.06, s = new THREE.Shape();
+  s.moveTo(ro, 0.5);
+  s.lineTo(ro, c);
+  s.absarc(0, c, ro, 0, Math.PI, false);
+  s.lineTo(-ro, 0.4);
+  s.lineTo(-ri, 0.4);
+  s.lineTo(-ri, c);
+  s.absarc(0, c, ri, Math.PI, 0, true);
+  s.lineTo(ri, 0.5);
+  s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.36, curveSegments: 18, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.004, bevelSegments: 2 });
+  g.translate(0, 0, -0.18);
+  return g;
+}
+
 export function ReadingCorner() {
   const light = useRef<THREE.PointLight>(null);
   const k = useRef(0);
   const m = useMemo(() => ({
-    fabric: new THREE.MeshStandardMaterial({ color: "#7b8f86", roughness: 0.95 }),
-    throw: new THREE.MeshStandardMaterial({ color: "#d8b78a", roughness: 1 }),
+    fabric: new THREE.MeshPhysicalMaterial({ color: "#6f8a7e", roughness: 0.92, sheen: 0.6, sheenColor: new THREE.Color("#b3cabf"), sheenRoughness: 0.7 }),
+    // a knit: soft ribs running along the blanket
+    throw: new THREE.MeshPhysicalMaterial({
+      map: canvasTexture(128, 128, (ctx, w, h) => {
+        ctx.fillStyle = "#e6d7bd";
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 8) {
+          ctx.fillStyle = "rgba(120,95,60,.2)";
+          ctx.fillRect(0, y, w, 2);
+          ctx.fillStyle = "rgba(255,250,235,.25)";
+          ctx.fillRect(0, y + 4, w, 2);
+        }
+      }, { repeat: [1, 6] }).texture,
+      roughness: 1, sheen: 0.5, sheenColor: new THREE.Color("#fff3dc"),
+    }),
+    pillow: new THREE.MeshPhysicalMaterial({ color: "#c0663a", roughness: 0.95, sheen: 0.5, sheenColor: new THREE.Color("#e9a27a") }),
     oak: new THREE.MeshStandardMaterial({ color: "#c9a06c", roughness: 0.5 }),
     metal: new THREE.MeshStandardMaterial({ color: "#2b2a28", roughness: 0.4, metalness: 0.7 }),
     shade: new THREE.MeshStandardMaterial({ color: "#efe2c6", emissive: new THREE.Color("#ffcf96"), emissiveIntensity: 0, roughness: 0.9, side: THREE.DoubleSide }),
@@ -176,21 +209,34 @@ export function ReadingCorner() {
     if (light.current) light.current.intensity = 2.2 * k.current;
     m.shade.emissiveIntensity = 0.6 * k.current;
   });
+  const chair = useMemo(() => ({
+    base: new RoundedBoxGeometry(0.8, 0.22, 0.76, 4, 0.05),
+    seat: new RoundedBoxGeometry(0.58, 0.13, 0.6, 4, 0.055),
+    back: new RoundedBoxGeometry(0.8, 0.56, 0.17, 4, 0.07),
+    backCushion: new RoundedBoxGeometry(0.58, 0.44, 0.13, 4, 0.06),
+    arm: new RoundedBoxGeometry(0.12, 0.26, 0.74, 4, 0.055),
+    pillow: new RoundedBoxGeometry(0.34, 0.3, 0.1, 4, 0.05),
+    throw: blanketOverArm(),
+  }), []);
   const label = () => (useRoom.getState().floorLamp ? "READING LAMP · SWITCH OFF" : "READING LAMP · SWITCH ON");
   return (
     <group>
-      {/* an armchair turned toward the windows, a blanket over its arm */}
+      {/* an armchair turned toward the windows: soft cushions, a pillow, a blanket folded over one arm */}
       <group position={CORNER} rotation-y={2.45}>
-        <mesh position={[0, 0.25, 0]} castShadow receiveShadow material={m.fabric}><boxGeometry args={[0.72, 0.2, 0.7]} /></mesh>
-        <mesh position={[0, 0.39, 0.02]} castShadow receiveShadow material={m.fabric}><boxGeometry args={[0.6, 0.1, 0.62]} /></mesh>
-        <mesh position={[0, 0.62, -0.3]} rotation-x={-0.12} castShadow receiveShadow material={m.fabric}><boxGeometry args={[0.72, 0.62, 0.14]} /></mesh>
-        {[-1, 1].map((s) => (
-          <mesh key={s} position={[s * 0.33, 0.45, 0]} castShadow receiveShadow material={m.fabric}><boxGeometry args={[0.1, 0.24, 0.66]} /></mesh>
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+          <mesh key={`${sx}${sz}`} position={[sx * 0.3, 0.07, sz * 0.27]} rotation={[-sz * 0.12, 0, sx * 0.12]} castShadow material={m.oak}>
+            <cylinderGeometry args={[0.017, 0.011, 0.15, 10]} />
+          </mesh>
         ))}
-        <mesh position={[0.33, 0.5, 0.05]} rotation-z={-0.1} castShadow material={m.throw}><boxGeometry args={[0.16, 0.06, 0.5]} /></mesh>
-        {[[-0.3, -0.28], [0.3, -0.28], [-0.3, 0.28], [0.3, 0.28]].map(([x, z]) => (
-          <mesh key={`${x}${z}`} position={[x, 0.075, z]} castShadow material={m.oak}><cylinderGeometry args={[0.018, 0.012, 0.15, 8]} /></mesh>
+        <mesh geometry={chair.base} position={[0, 0.25, 0]} castShadow receiveShadow material={m.fabric} />
+        <mesh geometry={chair.seat} position={[0, 0.415, 0.05]} castShadow receiveShadow material={m.fabric} />
+        <mesh geometry={chair.back} position={[0, 0.62, -0.3]} rotation-x={-0.1} castShadow receiveShadow material={m.fabric} />
+        <mesh geometry={chair.backCushion} position={[0, 0.64, -0.19]} rotation-x={-0.14} castShadow receiveShadow material={m.fabric} />
+        {[-1, 1].map((sx) => (
+          <mesh key={sx} geometry={chair.arm} position={[sx * 0.34, 0.47, 0]} castShadow receiveShadow material={m.fabric} />
         ))}
+        <mesh geometry={chair.pillow} position={[0.13, 0.6, -0.09]} rotation={[-0.28, -0.22, 0.16]} castShadow receiveShadow material={m.pillow} />
+        <mesh geometry={chair.throw} position={[-0.34, 0, 0.06]} castShadow receiveShadow material={m.throw} />
       </group>
       <group position={[-2.02, 0, 2.05]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
         <mesh position={[0, 0.012, 0]} castShadow receiveShadow material={m.metal}><cylinderGeometry args={[0.14, 0.16, 0.024, 32]} /></mesh>
