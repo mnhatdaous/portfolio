@@ -293,7 +293,7 @@ export default function Hud() {
           <button className="pill frost" onClick={() => go("home")}>← <span className="lbl">Back to the room · Esc</span></button>
         ) : null}
         <span className="spacer" />
-        {page === "home" && <span className="hint frost">Drag to look around · open the computer, board, bookshelf or phone · pet the cat</span>}
+        {page === "home" && <span className="hint frost">Drag or scroll to look around · open the computer, board, shelf or phone · pet the cat</span>}
         {page === "window" && <span className="hint frost">Drag to look around · click or Esc to come back</span>}
         <span className="spacer" />
         <a className="pill frost" href={song.href} target="_blank" rel="noopener noreferrer" aria-label={`${song.title} by ${song.artist}, on YouTube`}>

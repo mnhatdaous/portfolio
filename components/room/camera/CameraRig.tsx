@@ -37,6 +37,12 @@ function homeFrame(): Frame {
   return { pos: HOME.clone(), tgt: HOME.clone().addScaledVector(homeFacing, LOOK) };
 }
 
+/** the view is about to turn under a still pointer: drop the hover label until the pointer moves again */
+function dropHover() {
+  if (useRoom.getState().hover) useRoom.getState().setHover(null);
+  document.body.style.cursor = "";
+}
+
 /** the arrow keys turn the head at home; set by the rig */
 export const look = { turn: (a: number) => void a };
 
@@ -222,11 +228,30 @@ export default function CameraRig() {
         });
       } else if (s.page !== p.page && s.entered) flyTo(s.page, { prev: p.page });
     });
-    look.turn = (a) => { if (useRoom.getState().page === "home") turn.current += a; };
+    look.turn = (a) => {
+      if (useRoom.getState().page !== "home") return;
+      dropHover();
+      turn.current += a;
+    };
     return unsub;
     // flyTo reads everything through refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // at home a scroll turns the room as well as a drag: a mouse wheel's notches, a trackpad's swipe either way
+  useEffect(() => {
+    const el = gl.domElement;
+    const wheel = (e: WheelEvent) => {
+      const s = useRoom.getState();
+      if (!s.entered || s.page !== "home" || fly.current) return;
+      e.preventDefault();
+      dropHover();
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      turn.current -= d * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1) * 0.0022;
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [gl]);
 
   // a resize re-frames the page in one step
   useEffect(() => {

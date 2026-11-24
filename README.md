@@ -44,7 +44,7 @@ Still to do:
 All in [`components/room/camera/`](components/room/camera/):
 
 - **Home turns all the way round.** In the middle of the room the orbit target sits 15 cm in front of the eye, so a
-  drag turns the head instead of circling an object, with no limit on the turn. The drag grabs the room, as in a
+  drag turns the head instead of circling an object, with no limit on the turn. A scroll turns it too. The drag grabs the room, as in a
   panorama, and the lens widens. Coming back from a station, you face the thing you just left.
 - **Stations, not hand-placed cameras.** Each page registers its object (`registerStation`). `frameFor()` measures
   the object's bounding box and backs the camera away along the station's direction until the box fits the part of
