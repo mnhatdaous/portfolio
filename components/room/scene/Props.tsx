@@ -15,7 +15,7 @@ import { ROOM } from "./Room";
 // The things that only do something small when clicked, and the plants. They're what make the room feel lived in.
 
 // ---------------------------------------------------------------- a mug of coffee, steaming
-const MUG = new THREE.Vector3(0.58, DESK_Y, -1.76);
+const MUG = new THREE.Vector3(0.84, DESK_Y, -1.86);
 
 export function Mug() {
   const st = useRef({ level: 1 });
