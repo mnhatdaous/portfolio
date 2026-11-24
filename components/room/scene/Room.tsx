@@ -56,7 +56,9 @@ const FRAMES: Box[] = [
   { p: [0, WIN.y1 - 0.024 - BAR / 2, ROOM.z0 - T / 2], s: [W, BAR, 0.06] },
   ...SIDES.flatMap(({ s, x }) => [
     { p: [x, SIDE_C, SIDE_MID] as V3, s: [0.07, SIDE_H, 0.045] as V3 },
-    { p: [s < 0 ? ROOM.x0 - 0.06 : ROOM.x1 + 0.06, SIDE_C, ROOM.z0 - 0.06] as V3, s: [0.12, SIDE_H, 0.12] as V3 },
+    // the corner post stands 1 cm proud of the wall under the big window: that wall's end shows through the side
+    // window below the big sill, and on the same plane the two would flicker
+    { p: [s < 0 ? ROOM.x0 - 0.06 : ROOM.x1 + 0.06, SIDE_C, ROOM.z0 - 0.055] as V3, s: [0.12, SIDE_H, 0.13] as V3 },
     { p: [x, WIN.sideY0 + 0.024 + BAR / 2, SIDE_MID] as V3, s: [0.06, BAR, SIDE_LEN] as V3 },
     { p: [x, WIN.y1 - 0.024 - BAR / 2, SIDE_MID] as V3, s: [0.06, BAR, SIDE_LEN] as V3 },
     { p: [x, SIDE_C, WIN.sideZ1 - 0.024 - BAR / 2] as V3, s: [0.06, SIDE_H, BAR] as V3 },
