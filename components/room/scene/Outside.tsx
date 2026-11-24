@@ -254,10 +254,10 @@ function Town() {
   return <>{meshes.map((m, i) => <primitive key={i} object={m} />)}</>;
 }
 
-// ---------------------------------------------------------------- trees: firs, and maples turning
-/** Lambert with a leafy speckle and a slow sway; the sway and the speckle use the instance's position */
-function foliage(sway: number, leaf: number) {
-  const m = new THREE.MeshLambertMaterial({ color: "#ffffff" });
+// ---------------------------------------------------------------- trees: spruces, and maples turning
+/** Lambert with vertex colours, a leafy speckle and a slow sway; the sway and the speckle use the instance's position */
+function foliage(sway: number, leaf: number, side: THREE.Side = THREE.FrontSide) {
+  const m = new THREE.MeshLambertMaterial({ color: "#ffffff", vertexColors: true, side });
   const uSway = { value: sway }, uLeafScale = { value: leaf };
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, { uTime: TIME, uSway, uLeafScale });
@@ -279,10 +279,100 @@ function foliage(sway: number, leaf: number) {
         }`)
       .replace("#include <color_fragment>", /* glsl */ `#include <color_fragment>
         float leaf = ln(vLeaf * 4.) * .55 + ln(vLeaf * 10.) * .45;
-        diffuseColor.rgb *= .58 + .75 * leaf;`);
+        diffuseColor.rgb *= .62 + .7 * leaf;`);
   };
   m.customProgramCacheKey = () => "foliage";
   return m;
+}
+
+/** a colour attribute: a shade (or an rgb tint) per vertex */
+function shadeVertices(g: THREE.BufferGeometry, shade: (i: number) => number | [number, number, number]) {
+  const n = g.attributes.position.count, c = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const v = shade(i);
+    c.set(typeof v === "number" ? [v, v, v] : v, i * 3);
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(c, 3));
+  return g;
+}
+
+/** a spruce one unit tall: a short trunk, and tiers of branches narrowing to a spire. Each tier is an open cone whose
+ * rim is a star: the branch tips reach out and hang down, the gaps between them pull in. Darker inside, lighter at the
+ * tips, as new growth is. */
+function spruceGeometry(seed: number) {
+  const r = rng(seed), parts: THREE.BufferGeometry[] = [];
+  parts.push(shadeVertices(new THREE.CylinderGeometry(0.01, 0.02, 0.2, 6).translate(0, 0.1, 0), () => 0.3));
+  const tiers = 10;
+  for (let k = 0; k < tiers; k++) {
+    const t = k / (tiers - 1), rad = 0.13 * Math.pow(1 - t, 1.1) + 0.015, h = 0.16 - t * 0.07, y = 0.12 + t * 0.78;
+    const seg = 2 * (7 + Math.floor(r() * 3)), cols = seg + 1;
+    const reach = Array.from({ length: seg }, (_, c) => (c % 2 ? 0.5 + r() * 0.12 : 0.9 + r() * 0.3));
+    const droop = Array.from({ length: seg }, (_, c) => (c % 2 ? 0.008 : 0.03 + r() * 0.03) * (1 - t * 0.5));
+    const g = new THREE.ConeGeometry(rad, h, seg, 2, true);
+    const p = g.attributes.position;
+    // rows run from the apex (0) to the rim (2); the seam's last column repeats the first
+    for (let row = 1; row < 3; row++) {
+      for (let col = 0; col < cols; col++) {
+        const i = row * cols + col, c = col % seg, sc = row === 2 ? reach[c] : 0.75 + 0.25 * reach[c];
+        p.setXYZ(i, p.getX(i) * sc, p.getY(i) - droop[c] * (row === 2 ? 1 : 0.3), p.getZ(i) * sc);
+      }
+    }
+    shadeVertices(g, (i) => {
+      const row = Math.floor(i / cols), tip = ((i % cols) % seg) % 2 === 0;
+      return row === 0 ? 0.55 : row === 1 ? 0.72 : tip ? 1.12 : 0.8;
+    });
+    g.rotateY(r() * Math.PI * 2).translate(0, y + h / 2, 0);
+    g.computeVertexNormals();
+    parts.push(g);
+  }
+  parts.push(shadeVertices(new THREE.ConeGeometry(0.008, 0.09, 6).translate(0, 1.0, 0), () => 0.7));
+  return mergeGeometries(parts)!;
+}
+
+/** a maple's crown, about two units across and one and a half tall: clumps of small lumpy lobes, denser in the
+ * middle and ragged at the edge, darker underneath and inside, each lobe a slightly different shade */
+function crownGeometry(seed: number) {
+  const r = rng(seed), parts: THREE.BufferGeometry[] = [], v = new THREE.Vector3();
+  const unit = new THREE.IcosahedronGeometry(1, 1);
+  unit.deleteAttribute("uv");
+  unit.deleteAttribute("normal");
+  const lobe = mergeVertices(unit);
+  const clumps = 6 + Math.floor(r() * 3);
+  for (let c = 0; c < clumps; c++) {
+    const u = r() * Math.PI * 2, w = Math.acos(1 - r() * 1.5), cr = 0.4 + r() * 0.2;
+    const cc = new THREE.Vector3(Math.sin(w) * Math.cos(u) * cr, Math.cos(w) * 0.36, Math.sin(w) * Math.sin(u) * cr);
+    const n = 4 + Math.floor(r() * 3);
+    for (let k = 0; k < n; k++) {
+      const g = lobe.clone(), sz = 0.2 + r() * 0.13, ph = r() * 10;
+      const at = cc.clone().add(new THREE.Vector3((r() - 0.5) * 0.34, (r() - 0.5) * 0.24, (r() - 0.5) * 0.34));
+      const tint = [1 + (r() - 0.5) * 0.16, 1 + (r() - 0.5) * 0.16, 1 + (r() - 0.5) * 0.1];
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i);
+        const bump = 1 + 0.17 * Math.sin(v.x * 4.6 + ph) * Math.sin(v.y * 3.9 + ph * 1.3) * Math.sin(v.z * 4.3 + ph * 0.7) + 0.06 * Math.sin(v.x * 9.7 - v.z * 8.3 + ph);
+        v.multiplyScalar(sz * bump).add(at);
+        p.setXYZ(i, v.x, v.y, v.z);
+      }
+      shadeVertices(g, (i) => {
+        v.fromBufferAttribute(p, i);
+        const k2 = 0.58 + 0.4 * THREE.MathUtils.smoothstep(v.y, -0.55, 0.6) + 0.12 * THREE.MathUtils.smoothstep(Math.hypot(v.x, v.z), 0.35, 0.85);
+        return [k2 * tint[0], k2 * tint[1], k2 * tint[2]];
+      });
+      g.computeVertexNormals();
+      parts.push(g);
+    }
+  }
+  return mergeGeometries(parts)!;
+}
+
+/** a maple's trunk and its first branches, one unit tall, reaching up into the crown */
+function mapleWoodGeometry(seed: number) {
+  const r = rng(seed), parts: THREE.BufferGeometry[] = [new THREE.CylinderGeometry(0.016, 0.03, 0.7, 7).translate(0, 0.35, 0)];
+  for (let k = 0; k < 3; k++) {
+    const len = 0.26 + r() * 0.08;
+    parts.push(new THREE.CylinderGeometry(0.006, 0.012, len, 5).translate(0, len / 2, 0).rotateZ(0.55 + r() * 0.3).rotateY((k / 3) * Math.PI * 2 + r() * 0.8).translate(0, 0.42 + r() * 0.12, 0));
+  }
+  return mergeGeometries(parts)!;
 }
 
 type Tree = { a: number; r: number; h: number; kind: "fir" | "maple"; crown?: number };
@@ -322,68 +412,50 @@ function Trees() {
       trees.push({ a, r: rad, kind: fir ? "fir" : "maple", h });
     }
 
-    const o = new THREE.Object3D();
+    const o = new THREE.Object3D(), out: THREE.Object3D[] = [];
     const firs = trees.filter((t) => t.kind === "fir"), maples = trees.filter((t) => t.kind === "maple");
-    // a fir: four stacked cones on a trunk, one unit tall
-    const firGeo = mergeGeometries([
-      new THREE.CylinderGeometry(0.03, 0.045, 0.2, 6).translate(0, 0.1, 0),
-      ...[0, 1, 2, 3].map((k) => new THREE.ConeGeometry(0.42 - k * 0.085, 0.4 - k * 0.04, 12, 1).translate(0, 0.27 + k * 0.19, 0)),
-    ])!;
-    const firMesh = new THREE.InstancedMesh(firGeo, foliage(0.004, 2.6), firs.length);
-    firs.forEach((t, i) => {
-      const x = Math.sin(t.a) * t.r, z = -Math.cos(t.a) * t.r;
-      o.position.set(x, groundY(x, z) - 0.3, z);
-      o.rotation.set((r() - 0.5) * 0.05, r() * 6.28, (r() - 0.5) * 0.05);
-      o.scale.set(t.h * 0.3, t.h, t.h * 0.3);
-      o.updateMatrix();
-      firMesh.setMatrixAt(i, o.matrix);
-      firMesh.setColorAt(i, FIR[Math.floor(r() * FIR.length)].clone().offsetHSL(0, 0, (r() - 0.5) * 0.04));
+
+    // spruces, in three shapes
+    const spruceMat = foliage(0.004, 3, THREE.DoubleSide);
+    [11, 12, 13].map(spruceGeometry).forEach((geo, v, all) => {
+      const mine = firs.filter((_, i) => i % all.length === v);
+      const mesh = new THREE.InstancedMesh(geo, spruceMat, mine.length);
+      mine.forEach((t, i) => {
+        const x = Math.sin(t.a) * t.r, z = -Math.cos(t.a) * t.r, w = 0.9 + r() * 0.25;
+        o.position.set(x, groundY(x, z) - 0.3, z);
+        o.rotation.set((r() - 0.5) * 0.04, r() * 6.28, (r() - 0.5) * 0.04);
+        o.scale.set(t.h * w, t.h, t.h * w);
+        o.updateMatrix();
+        mesh.setMatrixAt(i, o.matrix);
+        mesh.setColorAt(i, FIR[Math.floor(r() * FIR.length)].clone().offsetHSL(0, 0, (r() - 0.5) * 0.04));
+      });
+      out.push(mesh);
     });
 
-    // a maple: a trunk, and a crown of small lumpy blobs
-    const blobGeo = (() => {
-      const g = mergeVertices(new THREE.IcosahedronGeometry(1, 2));
-      const p = g.attributes.position, v = new THREE.Vector3(), q = rng(8);
-      const bumps = Array.from({ length: 7 }, () => new THREE.Vector3(q() - 0.5, q() - 0.5, q() - 0.5).normalize());
-      for (let i = 0; i < p.count; i++) {
-        v.fromBufferAttribute(p, i);
-        const k = bumps.reduce((s, b) => s + Math.max(0, v.dot(b)) ** 6 * 0.22, 0);
-        v.multiplyScalar(1 + k);
-        p.setXYZ(i, v.x, v.y, v.z);
-      }
-      g.computeVertexNormals();
-      return g;
-    })();
-    const blobs: { m: THREE.Matrix4; c: THREE.Color }[] = [];
-    const trunks: THREE.Matrix4[] = [];
-    maples.forEach((t) => {
-      const x = Math.sin(t.a) * t.r, z = -Math.cos(t.a) * t.r, y0 = groundY(x, z) - 0.3;
-      const crown = t.h * 0.3 * (t.crown ?? 1), cy = y0 + t.h - crown;
-      o.position.set(x, y0, z);
-      o.rotation.set(0, 0, 0);
-      o.scale.set(t.h * 0.03, t.h * 0.7, t.h * 0.03);
-      o.updateMatrix();
-      trunks.push(o.matrix.clone());
-      const base = MAPLE[Math.floor(r() * MAPLE.length)];
-      const n = 16 + Math.floor(r() * 10);
-      for (let k = 0; k < n; k++) {
-        const u = r() * Math.PI * 2, w = Math.acos(1 - r() * 1.7), s = 0.5 + r() * 0.5;
-        o.position.set(x + Math.sin(w) * Math.cos(u) * crown * s, cy + Math.cos(w) * crown * 0.75 * s, z + Math.sin(w) * Math.sin(u) * crown * s);
-        o.rotation.set(r() * 6, r() * 6, r() * 6);
-        o.scale.setScalar(crown * (0.3 + r() * 0.16));
+    // maples: four crowns to choose from, and their trunks
+    const crownMat = foliage(0.006, 2.4);
+    const trunks = new THREE.InstancedMesh(mapleWoodGeometry(31), new THREE.MeshLambertMaterial({ color: "#4a3a2e" }), maples.length);
+    [21, 22, 23, 24].map(crownGeometry).forEach((geo, v, all) => {
+      const mine = maples.map((t, i) => ({ t, i })).filter(({ i }) => i % all.length === v);
+      const mesh = new THREE.InstancedMesh(geo, crownMat, mine.length);
+      mine.forEach(({ t, i }, j) => {
+        const x = Math.sin(t.a) * t.r, z = -Math.cos(t.a) * t.r, y0 = groundY(x, z) - 0.3;
+        const cs = t.h * 0.36 * (t.crown ?? 1), yaw = r() * 6.28;
+        o.position.set(x, y0, z);
+        o.rotation.set(0, yaw, 0);
+        o.scale.setScalar(t.h);
         o.updateMatrix();
-        blobs.push({ m: o.matrix.clone(), c: base.clone().offsetHSL((r() - 0.5) * 0.03, 0, (r() - 0.5) * 0.09) });
-      }
+        trunks.setMatrixAt(i, o.matrix);
+        o.position.set(x, y0 + t.h - cs * 0.9, z);
+        o.scale.set(cs * (0.9 + r() * 0.2), cs * (0.85 + r() * 0.2), cs * (0.9 + r() * 0.2));
+        o.updateMatrix();
+        mesh.setMatrixAt(j, o.matrix);
+        mesh.setColorAt(j, MAPLE[Math.floor(r() * MAPLE.length)].clone().offsetHSL((r() - 0.5) * 0.02, 0, (r() - 0.5) * 0.06));
+      });
+      out.push(mesh);
     });
-    const mapleMesh = new THREE.InstancedMesh(blobGeo, foliage(0.03, 1.6), blobs.length);
-    blobs.forEach((b, i) => { mapleMesh.setMatrixAt(i, b.m); mapleMesh.setColorAt(i, b.c); });
-    const trunkMesh = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.7, 1, 1, 7).translate(0, 0.5, 0),
-      new THREE.MeshLambertMaterial({ color: "#4a3a2e" }),
-      trunks.length,
-    );
-    trunks.forEach((m, i) => trunkMesh.setMatrixAt(i, m));
-    return [firMesh, mapleMesh, trunkMesh];
+    out.push(trunks);
+    return out;
   }, []);
   return <>{meshes.map((m, i) => <primitive key={i} object={m} />)}</>;
 }
