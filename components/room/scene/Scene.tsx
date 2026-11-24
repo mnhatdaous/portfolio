@@ -14,6 +14,7 @@ import CorkBoard from "./CorkBoard";
 import Desk from "./Desk";
 import Outside, { SUN } from "./Outside";
 import Phone from "./Phone";
+import { BlossomVase, DeskTulips, FiddleLeafFig, OliveTree, SillFlowers } from "./Plants";
 import { Calendar, DeskClock, DustMotes, Monstera, Mug, PendantLamp, ReadingCorner, RubberPlant } from "./Props";
 import Room from "./Room";
 
@@ -82,6 +83,11 @@ export default function Scene() {
       <PendantLamp />
       <Monstera />
       <RubberPlant />
+      <OliveTree />
+      <FiddleLeafFig />
+      <DeskTulips />
+      <SillFlowers />
+      <BlossomVase />
       <CorkBoard />
       <Calendar />
       <Bookshelf />

@@ -9,6 +9,7 @@ import { clickable } from "../lib/interact";
 import { canvasTexture, FONT, fontsReady, rng } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
+import { Tulips } from "./Plants";
 import { Pothos } from "./Props";
 import { ROOM } from "./Room";
 
@@ -249,7 +250,12 @@ export function Library() {
       <primitive object={mesh} />
       {gaps.map((g, i) => (
         <group key={i} position={[g.x, g.y, 0.02]}>
-          {g.kind === 0 && <mesh position={[0, 0.09, 0]} castShadow material={m.vase}><cylinderGeometry args={[0.035, 0.05, 0.18, 24]} /></mesh>}
+          {g.kind === 0 && (
+            <group>
+              <mesh position={[0, 0.09, 0]} castShadow material={m.vase}><cylinderGeometry args={[0.035, 0.05, 0.18, 24]} /></mesh>
+              <Tulips at={[0, 0.15, 0]} n={4} height={0.15} seed={i + 9} />
+            </group>
+          )}
           {g.kind === 1 && (
             <group rotation-y={0.2}>
               <mesh position={[0, 0.1, -0.04]} rotation-x={-0.12} castShadow material={m.frame}><primitive object={soft(0.16, 0.2, 0.012)} attach="geometry" /></mesh>
