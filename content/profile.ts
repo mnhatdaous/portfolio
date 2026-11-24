@@ -50,8 +50,8 @@ export const profile = {
   about: [
     "Software engineer with 6+ years of experience building web applications, backend services and cloud-based systems.",
     "I work across frontend architecture, backend development, payment integrations, database migrations and cloud infrastructure, mostly in TypeScript, Python, Go and Rust.",
-    "Two years of frontend leadership: architecture decisions, code reviews and mentoring. I like Clean Architecture, Domain-Driven Design and microservices, with a focus on maintainable software and reliable delivery.",
-    "I use AI-assisted tools like Claude Code and Cursor for design, implementation and testing.",
+    "Two years of frontend leadership: architecture decisions, code reviews and mentoring. I build on Clean Architecture and microservices, with a focus on maintainable software and reliable delivery.",
+    "AI-assisted development is part of my everyday engineering workflow: I use Claude Code across design, implementation and testing to ship faster while keeping a high bar for quality.",
   ],
   education: {
     school: "National University of Science, Ho Chi Minh City",
