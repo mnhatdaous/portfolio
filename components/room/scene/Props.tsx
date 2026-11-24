@@ -159,7 +159,8 @@ export function PendantLamp() {
 }
 
 // ---------------------------------------------------------------- the reading corner: an armchair and a lamp
-const CORNER = new THREE.Vector3(-1.6, 0, 1.72);
+// clear of the shelves on the back wall and of the board on the left one
+const CORNER = new THREE.Vector3(-1.45, 0, 1.38);
 
 /** a knit throw over the armchair's arm: the arm's rounded top in section, a short fall on the inside and a long one
  * outside, run along the arm. In the arm's coordinates: x across it (outside is -x), y up, centred on z. */
@@ -222,7 +223,7 @@ export function ReadingCorner() {
   return (
     <group>
       {/* an armchair turned toward the windows: soft cushions, a pillow, a blanket folded over one arm */}
-      <group position={CORNER} rotation-y={2.45}>
+      <group position={CORNER} rotation-y={2.68}>
         {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
           <mesh key={`${sx}${sz}`} position={[sx * 0.3, 0.07, sz * 0.27]} rotation={[-sz * 0.12, 0, sx * 0.12]} castShadow material={m.oak}>
             <cylinderGeometry args={[0.017, 0.011, 0.15, 10]} />
@@ -238,7 +239,7 @@ export function ReadingCorner() {
         <mesh geometry={chair.pillow} position={[0.13, 0.6, -0.09]} rotation={[-0.28, -0.22, 0.16]} castShadow receiveShadow material={m.pillow} />
         <mesh geometry={chair.throw} position={[-0.34, 0, 0.06]} castShadow receiveShadow material={m.throw} />
       </group>
-      <group position={[-2.02, 0, 2.05]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
+      <group position={[-0.85, 0, 1.75]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
         <mesh position={[0, 0.012, 0]} castShadow receiveShadow material={m.metal}><cylinderGeometry args={[0.14, 0.16, 0.024, 32]} /></mesh>
         <mesh position={[0, 0.75, 0]} castShadow material={m.metal}><cylinderGeometry args={[0.011, 0.011, 1.48, 10]} /></mesh>
         <mesh position={[0, 1.58, 0]} castShadow material={m.shade}><cylinderGeometry args={[0.15, 0.2, 0.28, 32, 1, true]} /></mesh>
