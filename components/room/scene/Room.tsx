@@ -1,9 +1,10 @@
 "use client";
 import { useMemo } from "react";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { BACK_LABEL, clickable, clickOutside, solid } from "../lib/interact";
 import { planksTexture, plasterTexture, rugTexture, woodTexture } from "../lib/textures";
-import { curvedSlat, soft } from "../lib/shapes";
+import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 
 // The study: one room on a hill above the lake. The big window over the desk runs corner to corner and the side
@@ -145,23 +146,57 @@ function Door({ m }: { m: { oak: THREE.Material; door: THREE.Material; brass: TH
   );
 }
 
-/** a molded chair at the desk: a white seat and a curved back, on slim black legs splayed a little */
+/** a desk chair to sink into: a padded cognac-leather seat, a channel-tufted back and padded arms, on a black swivel
+ * base with casters. Pulled out a little and turned, as if someone just got up. */
 function Chair() {
   const m = useMemo(() => ({
-    shell: new THREE.MeshStandardMaterial({ color: "#ecebe6", roughness: 0.42 }),
-    steel: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
+    leather: new THREE.MeshPhysicalMaterial({
+      color: "#8f5232", roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.5, sheen: 0.35, sheenColor: new THREE.Color("#dba57c"),
+    }),
+    seam: new THREE.MeshStandardMaterial({ color: "#5e331d", roughness: 0.7 }),
+    base: new THREE.MeshStandardMaterial({ color: "#1d1f22", roughness: 0.4, metalness: 0.5 }),
+    chrome: new THREE.MeshStandardMaterial({ color: "#c9ccd1", roughness: 0.18, metalness: 0.95 }),
   }), []);
-  const back = useMemo(() => curvedSlat(0.3, 0.012, 1.45, 0.26), []);
+  const g = useMemo(() => ({
+    seat: new RoundedBoxGeometry(0.52, 0.1, 0.5, 4, 0.045),
+    back: new RoundedBoxGeometry(0.5, 0.48, 0.08, 4, 0.038),
+    channel: new RoundedBoxGeometry(0.44, 0.135, 0.04, 4, 0.019),
+    arm: new RoundedBoxGeometry(0.075, 0.038, 0.28, 3, 0.017),
+  }), []);
   return (
-    <group position={[0.08, 0, -1.25]} rotation-y={0.12}>
-      <mesh position={[0, 0.455, 0]} castShadow receiveShadow material={m.shell}><primitive object={soft(0.46, 0.03, 0.44, 0.015)} attach="geometry" /></mesh>
-      <group position={[0, 0.62, 0.2]} rotation-x={-0.15}>
-        <mesh geometry={back} position={[0, 0, -0.306]} castShadow receiveShadow material={m.shell} />
+    <group position={[0.18, 0, -1.2]} rotation-y={0.38}>
+      {/* the swivel base: five spokes on casters, a chrome column */}
+      {[0, 1, 2, 3, 4].map((k) => {
+        const a = (k / 5) * Math.PI * 2;
+        return (
+          <group key={k} rotation-y={a}>
+            <mesh position={[0, 0.075, 0.15]} rotation-x={0.12} castShadow material={m.base}><primitive object={soft(0.04, 0.03, 0.3, 0.012)} attach="geometry" /></mesh>
+            <mesh position={[0, 0.03, 0.29]} rotation-z={Math.PI / 2} castShadow material={m.base}><cylinderGeometry args={[0.028, 0.028, 0.03, 16]} /></mesh>
+          </group>
+        );
+      })}
+      <mesh position={[0, 0.1, 0]} castShadow material={m.base}><cylinderGeometry args={[0.04, 0.05, 0.06, 20]} /></mesh>
+      <mesh position={[0, 0.26, 0]} castShadow material={m.chrome}><cylinderGeometry args={[0.022, 0.022, 0.28, 16]} /></mesh>
+      <mesh position={[0, 0.405, 0.02]} castShadow material={m.base}><primitive object={soft(0.24, 0.035, 0.26, 0.01)} attach="geometry" /></mesh>
+      {/* the seat */}
+      <mesh geometry={g.seat} position={[0, 0.47, 0]} castShadow receiveShadow material={m.leather} />
+      {/* the back, leaning a little, with three padded channels on its face */}
+      <group position={[0, 0.8, 0.25]} rotation-x={-0.16}>
+        <mesh position={[0, -0.25, -0.01]} castShadow material={m.base}><primitive object={soft(0.08, 0.16, 0.03, 0.01)} attach="geometry" /></mesh>
+        <mesh geometry={g.back} castShadow receiveShadow material={m.leather} />
+        {[-0.15, 0, 0.15].map((y) => (
+          <mesh key={y} geometry={g.channel} position={[0, y, -0.045]} castShadow receiveShadow material={m.leather} />
+        ))}
+        {[-0.075, 0.075].map((y) => (
+          <mesh key={y} position={[0, y, -0.042]} material={m.seam}><primitive object={soft(0.42, 0.006, 0.01, 0.002)} attach="geometry" /></mesh>
+        ))}
       </group>
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-        <mesh key={`${sx}${sz}`} position={[sx * 0.18, 0.22, sz * 0.17]} rotation={[-sz * 0.1, 0, sx * 0.1]} castShadow material={m.steel}>
-          <cylinderGeometry args={[0.009, 0.007, 0.45, 8]} />
-        </mesh>
+      {/* padded arms on black supports */}
+      {[-1, 1].map((sx) => (
+        <group key={sx} position={[sx * 0.29, 0, 0.02]}>
+          <mesh position={[0, 0.57, 0.05]} castShadow material={m.base}><primitive object={soft(0.03, 0.2, 0.04, 0.008)} attach="geometry" /></mesh>
+          <mesh geometry={g.arm} position={[0, 0.68, 0.01]} castShadow receiveShadow material={m.leather} />
+        </group>
       ))}
     </group>
   );
