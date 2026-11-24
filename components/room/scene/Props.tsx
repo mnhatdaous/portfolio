@@ -161,7 +161,7 @@ export function PendantLamp() {
 
 // ---------------------------------------------------------------- the reading corner: an armchair and a lamp
 // clear of the shelves on the back wall and of the board on the left one
-const CORNER = new THREE.Vector3(-1.45, 0, 1.38);
+const CORNER = new THREE.Vector3(-1.45, 0, 1.05);
 
 /** a knit throw over the armchair's arm: the arm's rounded top in section, a short fall on the inside and a long one
  * outside, run along the arm. In the arm's coordinates: x across it (outside is -x), y up, centred on z. */
@@ -240,7 +240,7 @@ export function ReadingCorner() {
         <mesh geometry={chair.pillow} position={[0.13, 0.6, -0.09]} rotation={[-0.28, -0.22, 0.16]} castShadow receiveShadow material={m.pillow} />
         <mesh geometry={chair.throw} position={[-0.34, 0, 0.06]} castShadow receiveShadow material={m.throw} />
       </group>
-      <group position={[-0.85, 0, 1.75]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
+      <group position={[-0.85, 0, 1.45]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
         <mesh position={[0, 0.012, 0]} castShadow receiveShadow material={m.metal}><cylinderGeometry args={[0.14, 0.16, 0.024, 32]} /></mesh>
         <mesh position={[0, 0.75, 0]} castShadow material={m.metal}><cylinderGeometry args={[0.011, 0.011, 1.48, 10]} /></mesh>
         <mesh position={[0, 1.58, 0]} castShadow material={m.shade}><cylinderGeometry args={[0.15, 0.2, 0.28, 32, 1, true]} /></mesh>
@@ -435,93 +435,108 @@ export function DustMotes() {
   return <points geometry={geo} material={mat} />;
 }
 
-// ---------------------------------------------------------------- a day-per-page pad on a black clip; tear a day off
-const day = (offset: number) => new Date(Date.now() + offset * 86400000);
-const PAD = { w: 0.22, h: 0.27 };
+// ---------------------------------------------------------------- the month on the wall, in a slim black frame
+// Drawn large (3,600 px a metre) so it stays sharp up close. A click flips the page up to the next month; after a
+// couple of months it comes back to this one.
+const POSTER = { w: 0.3, h: 0.4167 }, CW = 1080, CH = 1500;
 
-function drawDay(ctx: CanvasRenderingContext2D, offset: number) {
-  const W = ctx.canvas.width, H = ctx.canvas.height, d = day(offset), tz = profile.timeZone;
-  const part = (o: Intl.DateTimeFormatOptions, locale = "en-GB") => new Intl.DateTimeFormat(locale, { timeZone: tz, ...o }).format(d);
-  const sunday = part({ weekday: "short" }) === "Sun";
-  const ink = "#22262b", accent = "#c0632b", muted = "rgba(34,38,43,.5)";
+/** Saigon's month today, `offset` months on, and today's date if it's this month */
+function monthOf(offset: number) {
+  const now = new Date(), part = (o: Intl.DateTimeFormatOptions) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: profile.timeZone, ...o }).format(now));
+  const i = part({ month: "numeric" }) - 1 + offset;
+  return { y: part({ year: "numeric" }) + Math.floor(i / 12), m: (i % 12) + 1, today: offset === 0 ? part({ day: "numeric" }) : -1 };
+}
+
+function drawMonth(ctx: CanvasRenderingContext2D, offset: number) {
+  const { y, m, today } = monthOf(offset);
+  const ink = "#22262b", accent = "#c0632b", muted = "rgba(34,38,43,.62)", L = 90, R = CW - 90, colW = (R - L) / 7;
   ctx.fillStyle = "#f8f6f1";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, CW, CH);
+  // the month's number, big; the year and the month's name opposite, and a dot of colour
   ctx.textAlign = "left";
-  // the month and year small at the top, a dot of colour opposite
+  ctx.fillStyle = ink;
+  ctx.font = `800 300px ${FONT.display()}`;
+  ctx.fillText(String(m).padStart(2, "0"), L - 14, 360);
+  ctx.textAlign = "right";
+  ctx.font = `500 46px ${FONT.mono()}`;
+  ctx.fillText(String(y), R, 172);
   ctx.fillStyle = muted;
-  ctx.font = `500 22px ${FONT.mono()}`;
-  ctx.fillText(`${part({ month: "2-digit" })} · ${part({ year: "numeric" })}`, 26, 56);
+  ctx.font = `400 40px ${FONT.mono()}`;
+  ctx.fillText(new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1))).toUpperCase(), R, 232);
   ctx.fillStyle = accent;
   ctx.beginPath();
-  ctx.arc(W - 34, 49, 7, 0, Math.PI * 2);
+  ctx.arc(R - 12, 330, 14, 0, Math.PI * 2);
   ctx.fill();
-  // the day, big; Sundays in the accent
-  ctx.fillStyle = sunday ? accent : ink;
-  ctx.font = `800 170px ${FONT.display()}`;
-  ctx.fillText(part({ day: "2-digit" }), 18, 236);
-  // a hairline, the weekday, the city
   ctx.fillStyle = "rgba(34,38,43,.14)";
-  ctx.fillRect(26, 268, W - 52, 2);
-  ctx.fillStyle = ink;
-  ctx.font = `700 25px ${FONT.mono()}`;
-  ctx.fillText(part({ weekday: "long" }, "vi-VN").toLocaleUpperCase("vi"), 26, 310);
+  ctx.fillRect(L, 432, R - L, 3);
+  // the week, Monday first, as a Vietnamese calendar has it
+  ctx.textAlign = "center";
+  ctx.font = `500 34px ${FONT.mono()}`;
+  ["T2", "T3", "T4", "T5", "T6", "T7", "CN"].forEach((d, i) => {
+    ctx.fillStyle = i === 6 ? accent : muted;
+    ctx.fillText(d, L + colW * (i + 0.5), 512);
+  });
+  const first = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7, n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  for (let d = 1; d <= n; d++) {
+    const cell = first + d - 1, cx = L + colW * ((cell % 7) + 0.5), cy = 625 + Math.floor(cell / 7) * 128;
+    if (d === today) {
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 17, 48, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = d === today ? "#ffffff" : cell % 7 === 6 ? accent : ink;
+    ctx.font = `${d === today ? 700 : 500} 50px ${FONT.display()}`;
+    ctx.fillText(String(d), cx, cy);
+  }
+  ctx.textAlign = "left";
   ctx.fillStyle = muted;
-  ctx.font = `400 20px ${FONT.mono()}`;
-  ctx.fillText("Sài Gòn", 26, H - 26);
+  ctx.font = `400 32px ${FONT.mono()}`;
+  ctx.fillText("Sài Gòn · GMT+7", L, CH - 72);
 }
 
 export function Calendar() {
-  const pad = useMemo(() => canvasTexture(300, 368, (ctx) => drawDay(ctx, 0)), []);
-  const torn = useMemo(() => canvasTexture(300, 368, (ctx) => drawDay(ctx, 0)), []);
-  const st = useRef({ offset: 0, tearT: -1 });
+  const front = useMemo(() => canvasTexture(CW, CH, (ctx) => drawMonth(ctx, 0), { anisotropy: 16 }), []);
+  const flip = useMemo(() => canvasTexture(CW, CH, (ctx) => drawMonth(ctx, 0), { anisotropy: 16 }), []);
+  const st = useRef({ offset: 0, t: -1 });
   const page = useRef<THREE.Group>(null);
   useEffect(() => {
-    fontsReady().then(() => { drawDay(pad.ctx, st.current.offset); pad.texture.needsUpdate = true; });
-  }, [pad]);
+    fontsReady().then(() => { drawMonth(front.ctx, st.current.offset); front.texture.needsUpdate = true; });
+  }, [front]);
   const m = useMemo(() => ({
-    pad: new THREE.MeshStandardMaterial({ map: pad.texture, roughness: 0.85 }),
-    torn: new THREE.MeshStandardMaterial({ map: torn.texture, roughness: 0.85, transparent: true, side: THREE.DoubleSide }),
-    edge: new THREE.MeshStandardMaterial({ color: "#ebe8e1", roughness: 0.9 }),
-    clip: new THREE.MeshStandardMaterial({ color: "#1d1f22", roughness: 0.35, metalness: 0.5 }),
-    wire: new THREE.MeshStandardMaterial({ color: "#c9ccd1", roughness: 0.2, metalness: 0.95 }),
-  }), [pad, torn]);
+    paper: new THREE.MeshStandardMaterial({ map: front.texture, roughness: 0.8 }),
+    flip: new THREE.MeshStandardMaterial({ map: flip.texture, roughness: 0.8, transparent: true, side: THREE.DoubleSide }),
+    frame: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.4, metalness: 0.5 }),
+  }), [front, flip]);
 
+  // the old page swings out from the wall and up over the top, fading as it goes
   useFrame((_, dt) => {
     const s = st.current, g = page.current;
     if (!g) return;
-    if (s.tearT < 0) { g.visible = false; return; }
-    s.tearT += dt;
-    const k = Math.min(1, s.tearT / 1.1);
+    if (s.t < 0) { g.visible = false; return; }
+    s.t += dt;
+    const k = Math.min(1, s.t / 0.9), e = k * k * (3 - 2 * k);
     g.visible = k < 1;
-    g.rotation.x = k * 1.7;
-    g.position.y = PAD.h / 2 - k * k * 0.5;
-    g.position.z = 0.014 + k * 0.12;
-    m.torn.opacity = 1 - k * k;
-    if (k >= 1) s.tearT = -1;
+    g.rotation.x = -e * Math.PI * 0.95;
+    m.flip.opacity = 1 - Math.max(0, (k - 0.6) / 0.4);
+    if (k >= 1) s.t = -1;
   });
 
-  const tear = () => {
+  const next = () => {
     const s = st.current;
-    drawDay(torn.ctx, s.offset); torn.texture.needsUpdate = true;
-    s.offset = (s.offset + 1) % 4; // after a few days, back to today
-    drawDay(pad.ctx, s.offset); pad.texture.needsUpdate = true;
-    s.tearT = 0;
+    drawMonth(flip.ctx, s.offset); flip.texture.needsUpdate = true;
+    s.offset = (s.offset + 1) % 3;
+    drawMonth(front.ctx, s.offset); front.texture.needsUpdate = true;
+    s.t = 0;
   };
+  const label = () => (st.current.offset === 2 ? "CALENDAR · BACK TO THIS MONTH" : "CALENDAR · NEXT MONTH");
 
   return (
-    <group position={[0.62, 1.55, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable("DAY PAD · TEAR OFF A DAY", tear)}>
-      {/* the stack of days, and today on top */}
-      <mesh position={[0, 0, 0.006]} castShadow material={m.edge}><primitive object={soft(PAD.w, PAD.h, 0.012, 0.004)} attach="geometry" /></mesh>
-      <mesh position={[0, 0, 0.0125]} material={m.pad}><planeGeometry args={[PAD.w, PAD.h]} /></mesh>
-      {/* a binder clip across the top, its wire handles up to a nail */}
-      <mesh position={[0, PAD.h / 2 - 0.006, 0.012]} castShadow material={m.clip}><primitive object={soft(0.075, 0.03, 0.026, 0.006)} attach="geometry" /></mesh>
-      {[-1, 1].map((sx) => (
-        <mesh key={sx} position={[sx * 0.018, PAD.h / 2 + 0.024, 0.016]} rotation-z={-sx * 0.35} material={m.wire}><cylinderGeometry args={[0.0018, 0.0018, 0.05, 6]} /></mesh>
-      ))}
-      <mesh position={[0, PAD.h / 2 + 0.046, 0.006]} rotation-x={Math.PI / 2} material={m.wire}><cylinderGeometry args={[0.004, 0.004, 0.014, 10]} /></mesh>
-      {/* the page being torn off turns about its top edge */}
-      <group ref={page} position={[0, PAD.h / 2, 0.014]}>
-        <mesh position={[0, -PAD.h / 2, 0]} material={m.torn}><planeGeometry args={[PAD.w, PAD.h]} /></mesh>
+    <group position={[0.62, 1.5, ROOM.z1 - 0.005]} rotation-y={Math.PI} {...clickable(label, next)}>
+      <mesh position={[0, 0, 0.006]} castShadow material={m.frame}><primitive object={soft(POSTER.w + 0.016, POSTER.h + 0.016, 0.012, 0.004)} attach="geometry" /></mesh>
+      <mesh position={[0, 0, 0.0125]} material={m.paper}><planeGeometry args={[POSTER.w, POSTER.h]} /></mesh>
+      <group ref={page} position={[0, POSTER.h / 2, 0.0135]}>
+        <mesh position={[0, -POSTER.h / 2, 0]} material={m.flip}><planeGeometry args={[POSTER.w, POSTER.h]} /></mesh>
       </group>
     </group>
   );
