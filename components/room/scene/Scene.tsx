@@ -6,13 +6,14 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import CameraRig from "../camera/CameraRig";
+import { SKY, updateSky } from "../lib/sky";
 import { useRoom } from "../store";
 import Bookshelf from "./Bookshelf";
 import Cat from "./Cat";
 import Computer from "./Computer";
 import CorkBoard from "./CorkBoard";
 import Desk from "./Desk";
-import Outside, { SUN } from "./Outside";
+import Outside from "./Outside";
 import Phone from "./Phone";
 import { FiddleLeafFig, Monstera, OliveTree, RubberPlant } from "./Plants";
 import { Calendar } from "./Calendar";
@@ -39,17 +40,48 @@ const WINDOW_LIGHTS: { pos: [number, number, number]; look: THREE.Vector3; w: nu
   { pos: [3.16, 1.95, -0.97], look: new THREE.Vector3(0, 1.4, -0.97), w: 2.6, h: 2.3, k: 0.9 },
 ];
 
-/** an autumn afternoon: the sun low through the front-left windows, the sky's light from all the glass */
+/** the light of the hour (lib/sky.ts): the sun or the moon through the glass, the sky's light from all of it, and at
+ * night the lamps. They come on at sunset and go off in the morning; in between, they're the visitor's to switch. */
 function Daylight() {
   useMemo(() => RectAreaLightUniformsLib.init(), []);
   const rects = useRef<(THREE.RectAreaLight | null)[]>([]);
   useLayoutEffect(() => rects.current.forEach((l, i) => l?.lookAt(WINDOW_LIGHTS[i].look)), []);
-  const sunPos = useMemo(() => SUN.clone().multiplyScalar(30).toArray(), []);
+  const sun = useRef<THREE.DirectionalLight>(null), sky = useRef<THREE.HemisphereLight>(null), bounce = useRef<THREE.PointLight>(null);
+  const dark = useRef<boolean | null>(null);
+  useFrame(({ scene }) => {
+    updateSky();
+    if (sun.current) {
+      sun.current.position.copy(SKY.light).multiplyScalar(30);
+      sun.current.color.copy(SKY.lightColor);
+      sun.current.intensity = SKY.lightK;
+    }
+    if (sky.current) {
+      sky.current.color.copy(SKY.hemiSky);
+      sky.current.groundColor.copy(SKY.hemiGround);
+      sky.current.intensity = SKY.hemiK;
+    }
+    rects.current.forEach((l, i) => {
+      if (!l) return;
+      l.color.copy(SKY.win);
+      l.intensity = WINDOW_LIGHTS[i].k * SKY.winK;
+    });
+    if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(SKY.haze);
+    if (scene.background instanceof THREE.Color) scene.background.copy(SKY.horizon);
+    // the lamps: on as the sun goes down, off once it's well up
+    const isDark = SKY.sunSin < (dark.current ? 0.06 : 0);
+    if (isDark !== dark.current) {
+      dark.current = isDark;
+      useRoom.setState({ lamp: isDark, floorLamp: isDark });
+    }
+    // at night the lamps' light carries round the room, off the walls and the ceiling
+    const st = useRoom.getState();
+    if (bounce.current) bounce.current.intensity = SKY.night * ((st.lamp ? 1.5 : 0) + (st.floorLamp ? 0.8 : 0));
+  });
   return (
     <>
-      <hemisphereLight args={["#dbe8f5", "#a37b52", 0.75]} />
+      <hemisphereLight ref={sky} args={["#dbe8f5", "#a37b52", 0.75]} />
       <directionalLight
-        position={sunPos}
+        ref={sun}
         color="#ffe3bf"
         intensity={5.5}
         castShadow
@@ -67,6 +99,7 @@ function Daylight() {
       {WINDOW_LIGHTS.map((w, i) => (
         <rectAreaLight key={i} ref={(l) => { rects.current[i] = l; }} position={w.pos} width={w.w} height={w.h} intensity={w.k} color="#eaf2fb" />
       ))}
+      <pointLight ref={bounce} position={[0.2, 2.75, 0.4]} color="#ffcf9a" intensity={0} distance={11} decay={1.3} />
     </>
   );
 }

@@ -1,10 +1,15 @@
 # Dao Minh Nhat · portfolio
 
-A sunny study on a hill above a lake, on an autumn afternoon. The glass over the desk runs corner to corner and on up
+A study on a hill above a lake, on Sài Gòn time. The glass over the desk runs corner to corner and on up
 into a sloped glass roof between slim black steel rafters, and the side windows climb with it, so from the middle the
 view fills half the circle and the sky shows overhead: maples turning, firs, a town on the shore, the lake and snowy
 mountains. A black cat sleeps on the desk; pet it. The Mona Lisa, The Starry Night and The Great Wave hang above a
 big corduroy beanbag, and a guitar on its stand strums when you click it.
+
+The day is the real one in Sài Gòn: the sun comes up on the right, crosses in front of the windows and sets on the
+left; at sunset the lamps come on, and at night there are stars, a moon, and the town's windows lit across the lake
+until its people go to bed. The season follows the calendar: blossom in spring, deep green in summer, the maples
+turning in autumn, snow in winter, with falling leaves, petals, snow or, on summer nights, fireflies.
 
 The site is the room: the computer is **About**, the cork board is **Work**, the bookshelf is **Stack** and the phone
 is **Online**. From the middle of the room you can turn all the way round; click one of them and the camera flies to it
@@ -71,12 +76,18 @@ All in [`components/room/camera/`](components/room/camera/):
 [`components/room/scene/Outside.tsx`](components/room/scene/Outside.tsx) paints it in shaders and instanced meshes. Everything sits
 within 215 m, so the depth buffer stays precise; from that far, walking round the room moves it by less than a degree,
 which reads as far away.
-- the sky: a gradient, a glow toward the sun, and streaks of cloud on a layer overhead
+- the time and the season: [`components/room/lib/sky.ts`](components/room/lib/sky.ts) keeps Sài Gòn's clock, works out
+  where the sun and the moon are, and blends keyframed looks (night, before dawn, sunrise, morning, noon, afternoon,
+  golden hour, sunset, dusk) into the colours of the sky, the lake, the mountains and the light in the room
+- the sky: a gradient, a glow toward the sun and along the horizon as it rises and sets, the sun's disc, stars and a
+  moon at night, and streaks of cloud on a layer overhead
 - mountains and hills: ridgelines drawn on cylinders around the room, with snow above a wandering snowline and haze
   low down
-- the lake: glints where the sun would reflect
+- the lake: glints where the sun, or the moon, would reflect
 - a hillside running down from a bluff, so the treetops sit below the window line, and a town on the shore
-- the trees: firs as stacked cones, maples as clusters of lumpy blobs, with a leafy speckle and a slow sway
+- the trees: firs as stacked cones, maples as clusters of lumpy blobs, with a leafy speckle and a slow sway; their
+  colours, the hillside's, the snowline and the snow on the roofs and the branches follow the season
+- the air: falling snow, leaves or blossom, or fireflies on summer nights, as points drawn in a shader
 
 ## Map
 
@@ -90,6 +101,7 @@ which reads as far away.
 | `components/room/hud/Hud.tsx` | menu, cards, hover labels, the welcome gate |
 | `components/room/hud/Music.tsx` | the music's button in the bottom bar, and its `<audio>` element |
 | `components/room/scene/` | the room and its glass roof, the desk and its things, the cat, the board, the bookshelf, the wall calendar (a picture of the lake for every month), the paintings and the guitar, the view outside |
+| `components/room/lib/sky.ts` | the room's clock and season, the sun and the moon, and the colours of the hour |
 | `components/room/lib/audio.ts` | wind in the trees, birds, the lake, the cat's purr and meow, the guitar's strum, all made with Web Audio |
 | `components/room/lib/music.ts` | the music: starts on ENTER with sound on, fades with the sound switch, paused by its button |
 
@@ -98,6 +110,8 @@ which reads as far away.
 `1`–`4` sections · `Esc`, or a click anywhere outside the thing you're looking at, back to the room ·
 `←` `→` turn round in the room, look along the view from the window, or flip through notes, books and the calendar's year ahead ·
 `+` `−` zoom in and out (or pinch, ctrl/⌘ + scroll, or the − + buttons in the bottom bar), `0` back to 1× ·
-`/#about` `/#work` `/#stack` `/#online` open a section, `/#calendar` the calendar close-up · `?lofi=1` plain page (remembered) · `?room=1` the 3D room.
+`/#about` `/#work` `/#stack` `/#online` open a section, `/#calendar` the calendar close-up · `?lofi=1` plain page (remembered) · `?room=1` the 3D room ·
+`?time=7:30` (or `dawn`, `morning`, `noon`, `afternoon`, `evening`, `sunset`, `dusk`, `night`) another time of day ·
+`?season=spring` (`summer`, `autumn`, `winter`) another season · `?speed=600` the day going by 600 times as fast.
 
 Without WebGL 2, or with a software renderer, visitors get the plain page with a link into the room.
