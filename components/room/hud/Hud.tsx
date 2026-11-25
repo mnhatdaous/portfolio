@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { allSkills, builds, jobs, liveLinks, profile, skillGroups, usedAt, type Build, type Job } from "@/content/profile";
 import { STATIONS } from "../camera/stations";
 import { sound } from "../lib/audio";
+import { music } from "../lib/music";
 import { layout, MENU, narrow, useRoom, WORK_ITEMS, type Page } from "../store";
 import Music from "./Music";
 
@@ -212,7 +213,9 @@ function Gate() {
   }, []);
   const done = ready && pct >= 100;
   const enter = () => {
-    sound.start(useRoom.getState().sound);
+    const on = useRoom.getState().sound;
+    sound.start(on);
+    music.setSound(on);
     useRoom.getState().enter();
   };
   return (
@@ -263,6 +266,7 @@ export default function Hud() {
     const next = !on;
     useRoom.getState().setSound(next);
     sound.start(next);
+    music.setSound(next);
   };
   const label = page === "home" ? "In the room" : page === "window" ? "Looking out of the window" : page === "calendar" ? "The calendar" : page === "library" ? "The shelves" : TITLE[page];
 

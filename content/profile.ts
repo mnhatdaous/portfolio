@@ -247,13 +247,11 @@ export const links: Link[] = [
 
 export const liveLinks = () => links.filter((l) => l.href);
 
-/** the room's song: the bottom bar plays it in the page, in YouTube's own player, from the artist's official upload.
- * `youtube` is the video's id; `href` is its page on YouTube, for when the player can't load. */
-export const song = {
-  title: "River Flows in You",
-  artist: "Yiruma",
-  youtube: "7maJOI3QMu0",
-  href: "https://www.youtube.com/watch?v=7maJOI3QMu0",
+/** the room's music: an hour-long chill mix served with the site (public/audio), looping. It starts when a visitor
+ * comes in with sound on, and the bottom bar's button pauses and resumes it. `src` is relative to the page. */
+export const song: { title: string; artist?: string; src: string } = {
+  title: "Chill mix",
+  src: "./audio/chill.m4a",
 };
 
 /** where a skill was used: its name (or an alias) in a job's tech list, or written in that job's description */
