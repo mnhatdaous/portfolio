@@ -340,24 +340,71 @@ export function ReadingCorner() {
 }
 
 // ---------------------------------------------------------------- plants
-function heartLeaf() {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.bezierCurveTo(0.03, 0.006, 0.04, 0.045, 0, 0.07);
-  s.bezierCurveTo(-0.04, 0.045, -0.03, 0.006, 0, 0);
-  return new THREE.ShapeGeometry(s, 6);
+/** a golden pothos leaf: heart-shaped with a pointed tip, the lobes curving down either side of where the stalk joins,
+ * cupped along the midrib and arched, the tip curling down a touch. Its stalk joins at the origin; it points along +y
+ * with its face to +z. u runs across it, v from the base to the tip. */
+function pothosLeaf() {
+  const L = 0.072, W = 0.03;
+  return new ParametricGeometry((u, v, out) => {
+    const across = u * 2 - 1;
+    const half = W * Math.pow(Math.sin(Math.PI * (0.06 + 0.94 * v)), 0.72) * (1 - 0.3 * v);
+    const x = across * half;
+    const y = L * v - L * 0.16 * Math.abs(across) * Math.pow(1 - v, 3);
+    const z = (0.3 * x * x) / W + 0.006 * Math.sin(Math.PI * v) - 0.008 * v * v * v;
+    out.set(x, y, z);
+  }, 8, 12);
 }
+/** the leaf's skin: deep green, a pale midrib and curving veins, and the golden streaks a golden pothos has */
+function pothosSkin() {
+  return canvasTexture(64, 128, (ctx, w, h) => {
+    const r = rng(52), g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, "#2f6a2c");
+    g.addColorStop(0.5, "#3f8236");
+    g.addColorStop(1, "#2f6a2c");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 9; i++) {
+      // streaks of yellow-green running out from the midrib toward the edge, as the veins do
+      const y0 = h * (0.15 + r() * 0.75), side = r() < 0.5 ? -1 : 1;
+      ctx.strokeStyle = `rgba(214,206,110,${0.35 + r() * 0.35})`;
+      ctx.lineWidth = 1 + r() * 3;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, y0);
+      ctx.quadraticCurveTo(w / 2 + side * w * 0.25, y0 + h * 0.05, w / 2 + side * w * (0.35 + r() * 0.12), y0 + h * (0.1 + r() * 0.08));
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(190,215,140,.5)";
+    ctx.lineWidth = 1;
+    for (let k = 1; k < 7; k++) {
+      const y = (k / 7) * h;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(w / 2, y);
+        ctx.quadraticCurveTo(w / 2 + side * w * 0.2, y + h * 0.04, w / 2 + side * w * 0.42, y + h * 0.12);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = "rgba(205,225,160,.75)";
+    ctx.fillRect(w / 2 - 1, 0, 2, h);
+  }).texture;
+}
+/** a terracotta pot with a rolled rim, on its saucer: its outline, turned */
+const POT_PROFILE = [[0, 0.012], [0.05, 0.012], [0.052, 0.02], [0.063, 0.096], [0.069, 0.099], [0.072, 0.106], [0.071, 0.114], [0.066, 0.116], [0.062, 0.11], [0.06, 0.1]].map(([x, y]) => new THREE.Vector2(x, y));
+const SAUCER_PROFILE = [[0, 0], [0.068, 0], [0.074, 0.004], [0.076, 0.014], [0.072, 0.015], [0.069, 0.006], [0, 0.006]].map(([x, y]) => new THREE.Vector2(x, y));
 
 /** a pothos: a bushy pot, and vines that run out across whatever it stands on and trail over the front edge, `edge`
- * metres ahead of the pot (+z). Every leaf hangs from a stem. */
+ * metres ahead of the pot (+z). The vines are different lengths, each leaf on its own stalk, alternating sides at
+ * the nodes and smaller toward the tips where they're new. */
 export function Pothos({ position, vines = 3, length = 6, rotation = 0, edge = 0.14 }: { position: [number, number, number]; vines?: number; length?: number; rotation?: number; edge?: number }) {
-  const leaf = useMemo(heartLeaf, []);
-  const greens = useMemo(() => ["#3f7d3a", "#4f8f3f", "#5f9b43", "#3a6e34"].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, side: THREE.DoubleSide })), []);
+  const leaf = useMemo(pothosLeaf, []);
+  const skin = useMemo(pothosSkin, []);
+  const greens = useMemo(() => ["#ffffff", "#e8f3dd", "#dbe8c8", "#f2f7e8"].map((c) => new THREE.MeshStandardMaterial({ map: skin, color: c, roughness: 0.42, side: THREE.DoubleSide })), [skin]);
   const m = useMemo(() => ({
-    pot: new THREE.MeshStandardMaterial({ color: "#c27a52", roughness: 0.85, side: THREE.DoubleSide }),
+    pot: new THREE.MeshStandardMaterial({ color: "#b8693f", roughness: 0.9 }),
     soil: new THREE.MeshStandardMaterial({ color: "#2b1d14", roughness: 1 }),
-    stem: new THREE.MeshStandardMaterial({ color: "#56763a", roughness: 0.7 }),
+    stem: new THREE.MeshStandardMaterial({ color: "#5b7d3a", roughness: 0.6 }),
   }), []);
+  const g = useMemo(() => ({ pot: new THREE.LatheGeometry(POT_PROFILE, 36), saucer: new THREE.LatheGeometry(SAUCER_PROFILE, 36) }), []);
   const { leaves, stems } = useMemo(() => {
     const r = rng(23 + vines * 7 + length), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
     const leaves: { p: THREE.Vector3; q: THREE.Quaternion; s: number; c: number }[] = [], tubes: THREE.BufferGeometry[] = [];
@@ -366,33 +413,41 @@ export function Pothos({ position, vines = 3, length = 6, rotation = 0, edge = 0
       const y = tip.clone().normalize(), z = face.clone().addScaledVector(y, -face.dot(y)).normalize();
       return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(y, z), y, z));
     };
-    // the bush: leaves on short stalks rising out of the soil
-    for (let i = 0; i < 16; i++) {
-      const a = r() * Math.PI * 2, d = 0.012 + r() * 0.05, out = V(Math.cos(a), 0, Math.sin(a));
-      const base = V(out.x * d, 0.11 + r() * 0.08, out.z * d);
-      tubes.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(V(out.x * d * 0.3, 0.088, out.z * d * 0.3), V(out.x * d * 0.6, base.y * 0.85, out.z * d * 0.6), base), 5, 0.0015, 4, false));
-      leaves.push({ p: base, q: orient(out.clone().setY(0.5 + r() * 0.9), V(0, 1, 0).addScaledVector(out, 0.4)), s: 0.9 + r() * 0.5, c: Math.floor(r() * 4) });
+    /** a leaf on a short stalk from `node`, the stalk arching out to where the leaf's base sits */
+    const leafAt = (node: THREE.Vector3, tip: THREE.Vector3, face: THREE.Vector3, size: number, stalk: number) => {
+      const base = node.clone().addScaledVector(tip.clone().normalize(), stalk * 0.6).addScaledVector(face.clone().normalize(), stalk * 0.5);
+      tubes.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(node, node.clone().lerp(base, 0.5).addScaledVector(face.clone().normalize(), stalk * 0.25), base), 6, 0.0011, 4, false));
+      leaves.push({ p: base, q: orient(tip, face), s: size, c: Math.floor(r() * 4) });
+    };
+    const soilY = 0.1;
+    // the bush: leaves on stalks arching up and out of the soil, the big ones outside
+    for (let i = 0; i < 22; i++) {
+      const a = r() * Math.PI * 2, d = 0.008 + r() * 0.04, out = V(Math.cos(a), 0, Math.sin(a)), h = 0.05 + r() * 0.1;
+      const node = V(out.x * d * 0.3, soilY, out.z * d * 0.3), top = V(out.x * d, soilY + h, out.z * d);
+      tubes.push(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(node, V(out.x * d * 0.5, soilY + h * 0.8, out.z * d * 0.5), top), 6, 0.0017, 4, false));
+      leafAt(top, out.clone().setY(0.4 + r() * 1.1), V(0, 1, 0).addScaledVector(out, 0.5), 0.85 + r() * 0.45 + d * 4, 0.012);
     }
-    // the vines: up over the rim, along the surface to the edge, over it and down, swinging a little side to side
+    // the vines: over the rim, along the surface to the edge, over it and down, swinging a little side to side
     for (let v = 0; v < vines; v++) {
       const phi = (v - (vines - 1) / 2) * 0.42 + (r() - 0.5) * 0.16, dir = V(Math.sin(phi), 0, Math.cos(phi)), side = V(dir.z, 0, -dir.x);
-      const reach = Math.max(0.13, edge / Math.cos(phi)), drop = length * 0.045 * (0.8 + r() * 0.4);
-      const at = (h: number, y: number) => dir.clone().multiplyScalar(h).setY(y);
-      const pts = [at(0.02, 0.088), at(0.07, 0.112), at(0.088, 0.075), at(0.105, 0.01), at(reach - 0.012, 0.006), at(reach + 0.008, -0.01)];
+      const reach = Math.max(0.13, edge / Math.cos(phi)), drop = length * 0.045 * (0.55 + r() * 0.75) * (v === 1 ? 1.25 : 1);
+      const at = (hh: number, y: number) => dir.clone().multiplyScalar(hh).setY(y);
+      const pts = [at(0.02, soilY), at(0.07, 0.122), at(0.09, 0.085), at(0.105, 0.012), at(reach - 0.012, 0.006), at(reach + 0.008, -0.01)];
       const n = Math.max(3, Math.round(drop / 0.05));
       for (let k = 1; k <= n; k++) {
         const t = k / n;
-        pts.push(at(reach + 0.018 + Math.sin(t * 2.5 + v) * 0.012, -0.01 - drop * t).addScaledVector(side, Math.sin(t * 3.5 + v * 2.1) * 0.025));
+        pts.push(at(reach + 0.016 + Math.sin(t * 2.5 + v) * 0.012, -0.01 - drop * t).addScaledVector(side, Math.sin(t * 3.2 + v * 2.1) * 0.03 * t));
       }
       const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
-      tubes.push(new THREE.TubeGeometry(curve, 72, 0.0019, 5, false));
-      // a leaf at each node, alternating sides: lying on the shelf along the top, hanging and facing out below the edge
-      for (let k = 0; k < length; k++) {
-        const u = 0.1 + (0.9 * (k + 0.5)) / length, p = curve.getPointAt(u), tan = curve.getTangentAt(u);
-        const lr = k % 2 ? 1 : -1, hanging = p.y < -0.02;
-        const tip = hanging ? V(0, -1, 0).addScaledVector(dir, 0.55).addScaledVector(side, lr * 0.55) : tan.clone().setY(0).addScaledVector(side, lr * 0.9);
-        const face = hanging ? dir.clone().add(V(0, 0.35, 0)).addScaledVector(side, lr * 0.3) : V(0, 1, 0);
-        leaves.push({ p: p.addScaledVector(side, lr * 0.006), q: orient(tip, face), s: 0.72 + r() * 0.32, c: Math.floor(r() * 4) });
+      tubes.push(new THREE.TubeGeometry(curve, 96, 0.0018, 5, false));
+      // a node every few centimetres, a leaf at each, alternating sides, the young ones at the tip smaller
+      const len = curve.getLength(), count = Math.max(4, Math.round(len / 0.045));
+      for (let k = 0; k < count; k++) {
+        const u = 0.12 + (0.86 * (k + 0.5)) / count, p = curve.getPointAt(u), tan = curve.getTangentAt(u);
+        const lr = k % 2 ? 1 : -1, hanging = p.y < -0.02, young = Math.pow(u, 2.2);
+        const tip = hanging ? V(0, -1, 0).addScaledVector(dir, 0.6).addScaledVector(side, lr * 0.6) : tan.clone().setY(0.15).addScaledVector(side, lr * 0.9);
+        const face = hanging ? dir.clone().add(V(0, 0.4, 0)).addScaledVector(side, lr * 0.35) : V(0, 1, 0).addScaledVector(side, lr * 0.2);
+        leafAt(p.clone().addScaledVector(side, lr * 0.002), tip, face, (1.05 - young * 0.5) * (0.85 + r() * 0.25), 0.014);
       }
     }
     return { leaves, stems: mergeGeometries(tubes)! };
@@ -401,19 +456,20 @@ export function Pothos({ position, vines = 3, length = 6, rotation = 0, edge = 0
   const rustle = useRef(0);
   const tmp = useMemo(() => ({ q: new THREE.Quaternion(), e: new THREE.Euler() }), []);
   useFrame(({ clock }, dt) => {
-    const g = group.current;
-    if (!g) return;
+    const gr = group.current;
+    if (!gr) return;
     rustle.current = Math.max(0, rustle.current - dt * 0.8);
-    const T = clock.elapsedTime, amp = 0.03 + rustle.current * 0.16;
-    g.children.forEach((c, i) => {
+    const T = clock.elapsedTime, amp = 0.025 + rustle.current * 0.16;
+    gr.children.forEach((c, i) => {
       const w = T * (1.4 + (i % 5) * 0.3) + i;
       c.quaternion.copy(leaves[i].q).multiply(tmp.q.setFromEuler(tmp.e.set(Math.sin(w) * amp, 0, Math.sin(w * 0.7 + 1) * amp)));
     });
   });
   return (
     <group position={position} rotation-y={rotation} {...clickable("POTHOS · RUSTLE", () => { rustle.current = 1; })}>
-      <mesh position={[0, 0.05, 0]} castShadow receiveShadow material={m.pot}><cylinderGeometry args={[0.065, 0.048, 0.1, 24, 1, true]} /></mesh>
-      <mesh position={[0, 0.088, 0]} material={m.soil}><cylinderGeometry args={[0.062, 0.062, 0.006, 24]} /></mesh>
+      <mesh geometry={g.saucer} castShadow receiveShadow material={m.pot} />
+      <mesh geometry={g.pot} castShadow receiveShadow material={m.pot} />
+      <mesh position={[0, 0.1, 0]} rotation-x={-Math.PI / 2} receiveShadow material={m.soil}><circleGeometry args={[0.061, 32]} /></mesh>
       <mesh geometry={stems} castShadow material={m.stem} />
       <group ref={group}>
         {leaves.map((l, i) => (

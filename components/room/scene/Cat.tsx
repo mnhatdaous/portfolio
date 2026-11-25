@@ -8,7 +8,7 @@ import { canvasTexture, FONT } from "../lib/textures";
 import { DESK_Y } from "./Desk";
 
 // A black cat asleep on the desk, in the sun. A pat wakes it: the head comes up, the eyes open, it purrs and the tail
-// flicks; another pat while it's up gets a meow. Left alone, it curls back up.
+// flicks; keep petting and it keeps purring, with a meow now and then. Left alone, it curls back up.
 // Local coordinates: the head toward +x, the tail wrapped round the front (+z), y up from the desk.
 
 const AWAKE_FOR = 7;
@@ -49,7 +49,7 @@ function bendTail(geo: THREE.BufferGeometry, curve: THREE.CatmullRomCurve3, tip:
 }
 
 export default function Cat() {
-  const st = useRef({ now: 0, awakeUntil: -1, wake: 0, purring: false, petAt: -10, twitchAt: 4, twitch: 0 });
+  const st = useRef({ now: 0, awakeUntil: -1, wake: 0, purring: false, petAt: -10, spokeAt: -10, twitchAt: 4, twitch: 0 });
   const body = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const tip = useRef<THREE.Mesh>(null);
@@ -150,8 +150,14 @@ export default function Cat() {
     const s = st.current, wasAwake = s.now < s.awakeUntil;
     s.awakeUntil = s.now + AWAKE_FOR;
     s.petAt = s.now;
-    if (wasAwake) sound.meow();
-    else sound.mrrp();
+    // waking, a little trill; after that it mostly just purrs on while you keep petting, with a meow now and then
+    if (!wasAwake) {
+      sound.mrrp();
+      s.spokeAt = s.now;
+    } else if (s.now - s.spokeAt > 5 && Math.random() < 0.4) {
+      sound.meow();
+      s.spokeAt = s.now;
+    }
   };
   const label = () => (st.current.now < st.current.awakeUntil ? "CAT · PURRING · PET AGAIN" : "CAT · PET");
 

@@ -120,27 +120,38 @@ class Soundscape {
     this.birdTimer = window.setTimeout(() => this.birds(), 2200 + Math.random() * 6500);
   }
 
-  /** the purr: low noise pulsed about 26 times a second, swelling with each breath; silent until the cat wakes */
+  /** the purr, made once as a few seconds of sound and looped: a train of soft low thumps about 25 a second (the
+   * larynx twitching) through the chest's warmth, in breaths, a lighter, quicker in-breath and a fuller, slower
+   * out-breath with a little pause between, each a touch different. Silent until the cat wakes. */
   private purrVoice(ctx: AudioContext) {
-    const am = ctx.createGain();
-    am.gain.value = 0.5;
-    const pulse = ctx.createOscillator();
-    pulse.frequency.value = 26;
-    const pulseDepth = ctx.createGain();
-    pulseDepth.gain.value = 0.5;
-    pulse.connect(pulseDepth).connect(am.gain);
-    pulse.start();
-    const breath = ctx.createGain();
-    breath.gain.value = 0.6;
-    const lungs = ctx.createOscillator();
-    lungs.frequency.value = 0.42;
-    const lungDepth = ctx.createGain();
-    lungDepth.gain.value = 0.4;
-    lungs.connect(lungDepth).connect(breath.gain);
-    lungs.start();
+    const sr = ctx.sampleRate, breaths: [number, number, number, number][] = [];
+    let end = 0;
+    for (let k = 0; end < 8 || k % 2; k++) {
+      const out = k % 2 === 1, len = out ? 1.1 + Math.random() * 0.25 : 0.8 + Math.random() * 0.15;
+      breaths.push([end, len, out ? 1 : 0.55, out ? 23 + Math.random() : 26 + Math.random()]);
+      end += len + 0.05 + Math.random() * 0.06;
+    }
+    const n = Math.floor(sr * end), buf = ctx.createBuffer(1, n, sr), d = buf.getChannelData(0);
+    for (let i = 0, b = 0, phase = 0, hush = 0; i < n; i++) {
+      const t = i / sr;
+      while (b < breaths.length - 1 && t > breaths[b][0] + breaths[b][1]) b++;
+      const [t0, len, loud, rate] = breaths[b], x = (t - t0) / len;
+      const env = x <= 0 || x >= 1 ? 0 : Math.pow(Math.sin(Math.PI * x), 0.7) * loud;
+      phase += (rate * (1 + 0.03 * Math.sin(t * 6.3))) / sr;
+      const p = phase % 1;
+      hush += (Math.random() * 2 - 1 - hush) * 0.08;
+      // each pulse a damped low thump with a little breath in it
+      d[i] = Math.exp(-p * 7) * (Math.sin(2 * Math.PI * p * 2.2) * 0.8 + hush * 1.6) * env * 0.6;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.start();
+    const chest = this.filter(ctx, "peaking", 140, 1.1);
+    chest.gain.value = 4;
     this.purrGain = ctx.createGain();
     this.purrGain.gain.value = 0;
-    this.loop(ctx).connect(this.filter(ctx, "bandpass", 140, 0.9)).connect(this.filter(ctx, "lowpass", 500)).connect(am).connect(breath).connect(this.purrGain).connect(this.master);
+    src.connect(this.filter(ctx, "lowpass", 700)).connect(chest).connect(this.purrGain).connect(this.master);
   }
 
   purr(on: boolean) {

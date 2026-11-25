@@ -824,7 +824,9 @@ export function Calendar() {
   const m = useMemo(() => ({
     // a touch of its own light, so the colours read on a wall the sun doesn't reach
     face: new THREE.MeshStandardMaterial({ map: face.texture, roughness: 0.82, emissive: "#ffffff", emissiveMap: face.texture, emissiveIntensity: 0.24 }),
-    flip: new THREE.MeshStandardMaterial({ map: flip.texture, roughness: 0.82, emissive: "#ffffff", emissiveMap: flip.texture, emissiveIntensity: 0.24, transparent: true, side: THREE.DoubleSide }),
+    // the turning page is lit just like the one under it, and its back is plain paper
+    flip: new THREE.MeshStandardMaterial({ map: flip.texture, roughness: 0.82, emissive: "#ffffff", emissiveMap: flip.texture, emissiveIntensity: 0.24 }),
+    back: new THREE.MeshStandardMaterial({ color: "#efeae0", roughness: 0.9, emissive: "#efeae0", emissiveIntensity: 0.12, side: THREE.BackSide }),
     pad: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.9 }),
     board: new THREE.MeshStandardMaterial({ color: "#cfc6b6", roughness: 0.95 }),
     wire: new THREE.MeshStandardMaterial({ color: "#c7c9cc", roughness: 0.3, metalness: 0.9 }),
@@ -841,7 +843,7 @@ export function Calendar() {
       if (s.t < 0) return;
       if (s.dir < 0) { drawPage(face.ctx, s.offset); face.texture.needsUpdate = true; }
       s.t = -1;
-      if (g) { g.visible = false; g.rotation.x = 0; }
+      if (g) { g.visible = false; g.rotation.x = 0; g.scale.y = 1; }
     };
     const go = (d: 1 | -1) => {
       settle();
@@ -890,11 +892,11 @@ export function Calendar() {
     const s = st.current, g = page.current;
     if (!g || s.t < 0) return;
     s.t += dt;
-    const k = Math.min(1, s.t / 0.85), e = k * k * (3 - 2 * k), lift = s.dir > 0 ? e : 1 - e;
-    g.visible = true;
-    g.rotation.x = -lift * Math.PI * 0.94;
-    // over the top it's going behind the calendar, so it fades out there
-    m.flip.opacity = 1 - Math.max(0, (lift - 0.6) / 0.4);
+    // the page swings up and over the wire, then folds down out of sight behind it (going back, the other way round)
+    const k = Math.min(1, s.t / 0.95), lift = s.dir > 0 ? k : 1 - k, sw = Math.min(1, lift / 0.82), e = sw * sw * (3 - 2 * sw);
+    g.rotation.x = -e * Math.PI * 0.96;
+    g.scale.y = 1 - Math.max(0, (lift - 0.82) / 0.18);
+    g.visible = g.scale.y > 0.002;
     if (k >= 1) turn.settle();
   });
 
@@ -922,6 +924,7 @@ export function Calendar() {
       <mesh geometry={wire} castShadow material={m.wire} />
       <group ref={page} position={[0, PIVOT, Z.flip]} visible={false}>
         <mesh position={[0, -PIVOT, 0]} material={m.flip}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
+        <mesh position={[0, -PIVOT, 0]} material={m.back}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
       </group>
     </group>
   );
