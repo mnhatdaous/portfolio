@@ -199,18 +199,130 @@ function bagNormal(u: number, v: number, out: THREE.Vector3) {
   const b = bagPoint(u, Math.min(1, v + e), new THREE.Vector3()).sub(bagPoint(u, Math.max(0, v - e), new THREE.Vector3()));
   return out.crossVectors(a, b).normalize();
 }
-/** a chunky knit throw lying in the hollow and falling down the side: close on the seat, in looser, deeper folds as it
- * hangs, its hem standing off the cover. s runs across it, t from the hem up into the hollow. */
-const THROW = { u0: 0.8, u1: 1.0, v0: 0.04, v1: 0.93 };
-function throwPoint(s: number, t: number, out: THREE.Vector3, p = new THREE.Vector3(), n = new THREE.Vector3()) {
-  const u = THROW.u0 + s * (THROW.u1 - THROW.u0), v = THROW.v0 + t * (THROW.v1 - THROW.v0);
-  bagPoint(u, v, p);
-  bagNormal(u, v, n);
-  const loose = 1 - smoothstep(t, 0.3, 0.75), edge = Math.sqrt(Math.sin(s * Math.PI));
-  const fold = 0.032 * Math.sin(s * 8.5 + Math.sin(t * 2.6) * 1.8) + 0.014 * Math.sin(s * 21 + t * 6 + 1.3) + 0.006 * Math.sin(s * 47 - t * 9);
-  out.copy(p).addScaledVector(n, 0.016 + Math.max(0, fold) * (0.35 + 0.65 * loose) * edge + 0.07 * loose * loose);
-  out.y = Math.max(0.006, out.y);
-  return out;
+/** the beanbag seen from a point in its middle, CY up: for each direction round it, how far its surface is at each
+ * angle from straight down to straight up. Draping things over it is then a look-up. */
+const CY = 0.3, KA = 72, KP = 90;
+function bagShape() {
+  const p = new THREE.Vector3();
+  return Array.from({ length: KA }, (_, k) => {
+    const pol: [number, number][] = [];
+    for (let i = 0; i <= 160; i++) {
+      bagPoint(k / KA, i / 160, p);
+      const r = Math.hypot(p.x, p.z), y = p.y - CY;
+      pol.push([Math.atan2(y, r), Math.hypot(r, y)]);
+    }
+    const d = new Float32Array(KP + 1);
+    for (let j = 0, i = 1; j <= KP; j++) {
+      const phi = -Math.PI / 2 + (j / KP) * Math.PI;
+      while (i < pol.length - 1 && pol[i][0] < phi) i++;
+      const [p0, d0] = pol[i - 1], [p1, d1] = pol[i];
+      d[j] = d0 + ((d1 - d0) * (phi - p0)) / Math.max(1e-6, p1 - p0);
+    }
+    return d;
+  });
+}
+/** if q is inside the beanbag (or under the floor), move it out along the surface's normal to `gap` clear of it (out
+ * along the normal, not straight away from the middle, so nothing resting on it creeps toward the edge) */
+function pushOut(q: THREE.Vector3, shape: Float32Array[], gap: number) {
+  let moved = false;
+  const u = (((Math.atan2(q.x, q.z) / TAU) % 1) + 1) % 1, d = shape[Math.round(u * KA) % KA];
+  const rho = Math.hypot(q.x, q.z), y = q.y - CY, phi = Math.atan2(y, rho), dist = Math.hypot(rho, y);
+  const f = Math.min(KP - 1e-3, Math.max(1e-3, ((phi + Math.PI / 2) / Math.PI) * KP)), j = Math.min(KP - 1, Math.floor(f));
+  const D = d[j] + (d[j + 1] - d[j]) * (f - j);
+  if (dist < D + gap) {
+    const ph0 = -Math.PI / 2 + (j / KP) * Math.PI, ph1 = ph0 + Math.PI / KP;
+    let nr = Math.sin(ph1) * d[j + 1] - Math.sin(ph0) * d[j], ny = -(Math.cos(ph1) * d[j + 1] - Math.cos(ph0) * d[j]);
+    const nl = Math.hypot(nr, ny) || 1;
+    nr /= nl;
+    ny /= nl;
+    const depth = (Math.cos(phi) * D - rho) * nr + (Math.sin(phi) * D - y) * ny + gap;
+    if (depth > 0) {
+      const r2 = Math.max(0, rho + nr * depth);
+      q.y = CY + y + ny * depth;
+      if (rho > 1e-6) { q.x *= r2 / rho; q.z *= r2 / rho; }
+      moved = true;
+    }
+  }
+  if (q.y < 0.006) { q.y = 0.006; moved = true; }
+  return moved;
+}
+/** the throw: a knitted rectangle dropped onto the beanbag and left to settle, by a small cloth simulation run a few
+ * steps a frame while the room comes up. It catches on the seat and slides over the front-left side in its own folds,
+ * a corner hanging free. */
+const THROW = { w: 0.8, h: 1.1, nx: 17, ny: 23, steps: 170 };
+function makeThrow() {
+  const shape = bagShape(), { w, h, nx, ny } = THROW;
+  const geo = new THREE.PlaneGeometry(w, h, nx - 1, ny - 1);
+  geo.rotateX(-Math.PI / 2);
+  geo.rotateY(0.6);
+  geo.translate(-0.2, 1.0, 0.22);
+  const pos = geo.getAttribute("position") as THREE.BufferAttribute, n = pos.count;
+  const P = Float32Array.from(pos.array as Float32Array), Q = Float32Array.from(P);
+  const A: number[] = [], B: number[] = [], L: number[] = [], K: number[] = [];
+  const link = (a: number, b: number, k: number) => {
+    A.push(a * 3);
+    B.push(b * 3);
+    L.push(Math.hypot(P[b * 3] - P[a * 3], P[b * 3 + 1] - P[a * 3 + 1], P[b * 3 + 2] - P[a * 3 + 2]));
+    K.push(k);
+  };
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const id = j * nx + i;
+      if (i + 1 < nx) link(id, id + 1, 1);
+      if (j + 1 < ny) link(id, id + nx, 1);
+      if (i + 1 < nx && j + 1 < ny) { link(id, id + nx + 1, 0.5); link(id + 1, id + nx, 0.5); }
+      if (i + 2 < nx) link(id, id + 2, 0.1);
+      if (j + 2 < ny) link(id, id + 2 * nx, 0.1);
+    }
+  }
+  const g = -9.8 / 3600, q = new THREE.Vector3(), touch = new Uint8Array(n);
+  let step = 0;
+  const once = () => {
+    for (let x = 0; x < n * 3; x++) {
+      const cur = P[x], v = (cur - Q[x]) * 0.985;
+      Q[x] = cur;
+      P[x] = cur + v + (x % 3 === 1 ? g : 0);
+    }
+    touch.fill(0);
+    for (let it = 0; it < 5; it++) {
+      for (let c = 0; c < A.length; c++) {
+        const a = A[c], b = B[c], dx = P[b] - P[a], dy = P[b + 1] - P[a + 1], dz = P[b + 2] - P[a + 2], d = Math.hypot(dx, dy, dz);
+        if (d < 1e-9) continue;
+        const f = ((d - L[c]) / d) * 0.5 * K[c];
+        P[a] += dx * f; P[a + 1] += dy * f; P[a + 2] += dz * f;
+        P[b] -= dx * f; P[b + 1] -= dy * f; P[b + 2] -= dz * f;
+      }
+      for (let k = 0; k < n; k++) {
+        q.fromArray(P, k * 3);
+        if (pushOut(q, shape, 0.012)) { q.toArray(P, k * 3); touch[k] = 1; }
+      }
+    }
+    // knit on corduroy grips: where it touches, most of its slide is lost
+    for (let k = 0; k < n; k++) if (touch[k]) for (let c = 0; c < 3; c++) Q[k * 3 + c] += (P[k * 3 + c] - Q[k * 3 + c]) * 0.88;
+  };
+  return {
+    geo,
+    get done() { return step >= THROW.steps; },
+    /** a few more steps, and the cloth shown where it has got to */
+    run(steps: number) {
+      for (let s = 0; s < steps && step < THROW.steps; s++, step++) once();
+      (pos.array as Float32Array).set(P);
+      pos.needsUpdate = true;
+      geo.computeVertexNormals();
+      geo.computeBoundingSphere();
+    },
+    /** its two short ends, and which way a tassel hangs off each point along them */
+    ends() {
+      const out: { p: THREE.Vector3; d: THREE.Vector3 }[] = [];
+      for (const [row, inner] of [[0, 1], [ny - 1, ny - 2]]) {
+        for (let i = 0; i < nx; i++) {
+          const e = new THREE.Vector3().fromArray(P, (row * nx + i) * 3), back = new THREE.Vector3().fromArray(P, (inner * nx + i) * 3);
+          out.push({ p: e, d: e.clone().sub(back).normalize().multiplyScalar(0.5).add(new THREE.Vector3(0, -1, 0)).normalize() });
+        }
+      }
+      return out;
+    },
+  };
 }
 /** corduroy: the colour and the bump of one rib, repeated round the bag */
 function corduroy(normal: boolean) {
@@ -247,7 +359,7 @@ function knit() {
         }
       }
     }
-  }, { repeat: [6, 8] }).texture;
+  }, { repeat: [5, 7] }).texture;
 }
 /** one half of an open book: the pages rising from the spine in a soft curve and settling toward the edge */
 function bookHalf() {
@@ -280,21 +392,16 @@ export function ReadingCorner() {
     // leave a zero normal, which lights as NaN and the bloom spreads it over the screen: point those down and up
     const nrm = geo.getAttribute("normal"), uv = geo.getAttribute("uv");
     for (let i = 0; i < nrm.count; i++) if (Math.hypot(nrm.getX(i), nrm.getY(i), nrm.getZ(i)) < 1e-4) nrm.setXYZ(i, 0, uv.getY(i) < 0.5 ? -1 : 1, 0);
-    // the throw, and a fringe of short tassels along its hem, hanging straight down
-    const throwGeo = new ParametricGeometry((s, t, out) => throwPoint(s, t, out), 72, 64);
-    const fringe = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0026, 0.002, 0.05, 5), m.tassel, 34), o = new THREE.Object3D();
-    for (let i = 0; i < 34; i++) {
-      throwPoint((i + 0.5) / 34, 0, o.position);
-      o.position.y = Math.max(0.03, o.position.y - 0.022);
-      o.rotation.set((((i * 7) % 5) - 2) * 0.05, 0, (((i * 3) % 5) - 2) * 0.05);
-      o.updateMatrix();
-      fringe.setMatrixAt(i, o.matrix);
-    }
+    // the throw, settling over the first frames, and a fringe of tassels at its two ends once it has
+    const cloth = makeThrow();
+    const fringe = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0026, 0.002, 0.05, 5), m.tassel, THROW.nx * 2);
     fringe.castShadow = true;
+    fringe.visible = false;
+    const throwGeo = cloth.geo;
     // a book left open on the seat, sunk a little into it
     const at = bagPoint(0.12, 0.88, new THREE.Vector3()), n = bagNormal(0.12, 0.88, new THREE.Vector3());
     const book = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.5));
-    return { geo, throw: throwGeo, fringe, half: bookHalf(), book: { p: at.addScaledVector(n, -0.003), q: book } };
+    return { geo, throw: throwGeo, cloth, fringe, half: bookHalf(), book: { p: at.addScaledVector(n, -0.003), q: book } };
   }, [m]);
   // a click flops into it: it squashes and springs back
   const flop = useRef(-1), group = useRef<THREE.Group>(null);
@@ -303,6 +410,21 @@ export function ReadingCorner() {
     k.current += ((on ? 1 : 0) - k.current) * Math.min(1, dt * (on ? 12 : 5));
     if (light.current) light.current.intensity = 2.2 * k.current;
     m.shade.emissiveIntensity = 0.6 * k.current;
+    // the throw settles over the first frames; when it has, the tassels go on its ends
+    if (!bag.cloth.done) {
+      bag.cloth.run(12);
+      if (bag.cloth.done) {
+        const o = new THREE.Object3D(), up = new THREE.Vector3(0, 1, 0);
+        bag.cloth.ends().forEach((t, i) => {
+          o.position.copy(t.p).addScaledVector(t.d, 0.025);
+          o.quaternion.setFromUnitVectors(up, t.d);
+          o.updateMatrix();
+          bag.fringe.setMatrixAt(i, o.matrix);
+        });
+        bag.fringe.instanceMatrix.needsUpdate = true;
+        bag.fringe.visible = true;
+      }
+    }
     const g = group.current;
     if (!g || flop.current < 0) return;
     flop.current += dt;
