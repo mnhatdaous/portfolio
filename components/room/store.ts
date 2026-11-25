@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { allSkills, builds, jobs } from "@/content/profile";
+import { allSkills, jobs } from "@/content/profile";
 
 // Pages are stations in the room. "window", "calendar" and "library" are close-ups with no card of their own.
 export type Page = "home" | "about" | "work" | "stack" | "online" | "window" | "calendar" | "library";
@@ -10,12 +10,6 @@ export const MENU: { page: Exclude<Page, "home" | "window">; label: string; key:
   { page: "online", label: "Online", key: "4" },
 ];
 const PAGES: Page[] = ["home", "about", "work", "stack", "online", "window", "calendar", "library"];
-
-/** the board's items in order: the jobs, then the builds */
-export const WORK_ITEMS = [
-  ...jobs.map((j) => ({ kind: "job" as const, id: j.id })),
-  ...builds.map((b) => ({ kind: "build" as const, id: b.id })),
-];
 
 export function pageFromHash(hash = typeof location !== "undefined" ? location.hash : ""): Page {
   const h = hash.replace(/^#/, "") as Page;
@@ -77,7 +71,8 @@ export const useRoom = create<RoomState>((set, get) => ({
   enter: () => set({ entered: true }),
   setReady: () => set({ ready: true }),
   setSound: (sound) => set({ sound }),
-  selectWork: (i) => set({ workSel: (i + WORK_ITEMS.length) % WORK_ITEMS.length }),
+  // the board's notes, one per job
+  selectWork: (i) => set({ workSel: (i + jobs.length) % jobs.length }),
   selectStack: (i) => set({ stackSel: (i + allSkills.length) % allSkills.length }),
   toggleLamp: () => set((s) => ({ lamp: !s.lamp })),
   toggleFloorLamp: () => set((s) => ({ floorLamp: !s.floorLamp })),

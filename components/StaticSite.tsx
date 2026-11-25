@@ -1,4 +1,4 @@
-import { builds, jobs, liveLinks, profile, skillGroups } from "@/content/profile";
+import { jobs, liveLinks, profile, skillGroups } from "@/content/profile";
 
 // The lo-fi page: the same content as the room, as a plain readable page.
 export default function StaticSite() {
@@ -52,14 +52,6 @@ export default function StaticSite() {
               <p>{j.blurb}</p>
               <ul>{j.highlights.map((h) => <li key={h}>{h}</li>)}</ul>
               <p className="lf-tech">{j.tech.join(" · ")}</p>
-            </article>
-          ))}
-          <h3 className="lf-grp">Builds</h3>
-          {builds.map((b) => (
-            <article className="lf-row" key={b.id}>
-              <div className="lf-hd"><span className="t">{b.title}</span><span className="y">{b.at}</span></div>
-              <p>{b.blurb}</p>
-              <p className="lf-tech">{b.tech.join(" · ")}</p>
             </article>
           ))}
         </section>

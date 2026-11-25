@@ -2,7 +2,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { builds, jobs } from "@/content/profile";
+import { jobs } from "@/content/profile";
 import { registerStation } from "../camera/stations";
 import { clickable } from "../lib/interact";
 import { canvasTexture, corkTexture, FONT, fontsReady, rng } from "../lib/textures";
@@ -10,26 +10,24 @@ import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { ROOM } from "./Room";
 
-// Work: a cork board on the left wall. A sticky note per job, an index card per build, a polaroid. Local
-// coordinates: x across the board as the camera sees it, y up, z out of the cork.
+// Work: a cork board on the left wall. A sticky note per job and a polaroid, in two loose rows under the title card.
+// Local coordinates: x across the board as the camera sees it, y up, z out of the cork.
 
-type Item = { kind: "job" | "build"; i: number; x: number; y: number; w: number; h: number; rot: number; label: string };
+type Item = { i: number; x: number; y: number; w: number; h: number; rot: number; label: string };
 
-const ITEMS: Item[] = [
-  ...jobs.map((j, i) => {
-    const pos: [number, number][] = [[-0.215, 0.2], [-0.02, 0.205], [0.175, 0.195], [0.37, 0.205], [-0.415, -0.035]];
-    const r = rng(40 + i);
-    return { kind: "job" as const, i, x: pos[i][0], y: pos[i][1], w: 0.16, h: 0.16, rot: (r() - 0.5) * 0.12, label: `${j.title.toUpperCase()} · ${j.years}` };
-  }),
-  ...builds.map((b, i) => {
-    const pos: [number, number][] = [[-0.17, -0.045], [0.06, -0.055], [-0.17, -0.22], [0.06, -0.232]];
-    const r = rng(60 + i);
-    return { kind: "build" as const, i, x: pos[i][0], y: pos[i][1], w: 0.19, h: 0.125, rot: (r() - 0.5) * 0.08, label: `${b.title.toUpperCase()} · ${b.at.toUpperCase()}` };
-  }),
-];
+/** where each job's note goes, in the order of `jobs`: three along the top beside the title, the rest below */
+const SPOTS: [number, number][] = [[-0.12, 0.18], [0.11, 0.19], [0.34, 0.175], [-0.25, -0.12], [-0.02, -0.13]];
+const NOTE = 0.17;
 
-/** how far below the top edge the pin goes: sticky notes in their glue strip, index cards right at the edge, above the title */
-const pinInset = (it: Item) => (it.kind === "job" ? 0.016 : 0.001);
+const ITEMS: Item[] = jobs.map((j, i) => {
+  const r = rng(40 + i);
+  return { i, x: SPOTS[i][0], y: SPOTS[i][1], w: NOTE, h: NOTE, rot: (r() - 0.5) * 0.12, label: `${j.title.toUpperCase()} · ${j.years}` };
+});
+
+/** the pin goes through the note's glue strip, a little below its top edge */
+const PIN_INSET = 0.017;
+/** the polaroid finishes the lower row */
+const POLAROID = { x: 0.25, y: -0.115, w: 0.15, h: 0.176, rot: -0.07 };
 
 function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: string, size: number, family: string, maxW: number) {
   let s = size;
@@ -39,49 +37,30 @@ function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: string, si
 function drawNote(ctx: CanvasRenderingContext2D, item: Item) {
   const W = ctx.canvas.width, H = ctx.canvas.height;
   ctx.clearRect(0, 0, W, H);
-  if (item.kind === "job") {
-    const j = jobs[item.i];
-    ctx.fillStyle = j.note;
-    ctx.fillRect(0, 0, W, H);
-    const g = ctx.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, "rgba(255,255,255,.12)");
-    g.addColorStop(1, "rgba(0,0,0,.12)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(0,0,0,.06)";
-    ctx.fillRect(0, 0, W, 34);
-    ctx.fillStyle = "rgba(0,0,0,.45)";
-    ctx.font = `500 22px ${FONT.mono()}`;
-    ctx.fillText(String(item.i + 1).padStart(2, "0"), 18, 64);
-    ctx.fillStyle = "#1d1a16";
-    fitFont(ctx, j.title, "400", 62, FONT.hand(), W - 34);
-    ctx.fillText(j.title, 18, 134);
-    ctx.font = `400 30px ${FONT.hand()}`;
-    ctx.fillStyle = "rgba(29,26,22,.75)";
-    if (j.org) ctx.fillText(j.org, 18, 172);
-    ctx.textAlign = "right";
-    ctx.font = `400 32px ${FONT.hand()}`;
-    ctx.fillStyle = "#1d1a16";
-    ctx.fillText(j.years, W - 18, H - 22);
-    ctx.textAlign = "left";
-  } else {
-    const b = builds[item.i];
-    ctx.fillStyle = "#f6f1e6";
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = "rgba(70,120,200,.35)";
-    ctx.lineWidth = 2;
-    for (let y = 88; y < H; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    ctx.strokeStyle = "rgba(210,60,60,.6)";
-    ctx.beginPath(); ctx.moveTo(0, 60); ctx.lineTo(W, 60); ctx.stroke();
-    ctx.fillStyle = "#1b2a4a";
-    fitFont(ctx, b.title, "400", 40, FONT.hand(), W - 36);
-    ctx.fillText(b.title, 18, 54);
-    ctx.font = `400 28px ${FONT.hand()}`;
-    ctx.fillStyle = "rgba(27,42,74,.8)";
-    ctx.fillText(`at ${b.at} · ${b.years}`, 18, 113);
-    ctx.font = `400 24px ${FONT.hand()}`;
-    ctx.fillText(b.tech.slice(0, 3).join(", "), 18, 143);
-  }
+  const j = jobs[item.i];
+  ctx.fillStyle = j.note;
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, "rgba(255,255,255,.12)");
+  g.addColorStop(1, "rgba(0,0,0,.12)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,.06)";
+  ctx.fillRect(0, 0, W, 34);
+  ctx.fillStyle = "rgba(0,0,0,.45)";
+  ctx.font = `500 22px ${FONT.mono()}`;
+  ctx.fillText(String(item.i + 1).padStart(2, "0"), 18, 64);
+  ctx.fillStyle = "#1d1a16";
+  fitFont(ctx, j.title, "400", 62, FONT.hand(), W - 34);
+  ctx.fillText(j.title, 18, 134);
+  ctx.font = `400 30px ${FONT.hand()}`;
+  ctx.fillStyle = "rgba(29,26,22,.75)";
+  if (j.org) ctx.fillText(j.org, 18, 172);
+  ctx.textAlign = "right";
+  ctx.font = `400 32px ${FONT.hand()}`;
+  ctx.fillStyle = "#1d1a16";
+  ctx.fillText(j.years, W - 18, H - 22);
+  ctx.textAlign = "left";
 }
 
 function drawTitle(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -129,7 +108,7 @@ export default function CorkBoard() {
   useEffect(() => { registerStation("work", ref.current); return () => registerStation("work", null); }, []);
 
   const tex = useMemo(() => ({
-    notes: ITEMS.map((it) => canvasTexture(it.kind === "job" ? 256 : 320, it.kind === "job" ? 256 : 210, (ctx) => drawNote(ctx, it))),
+    notes: ITEMS.map((it) => canvasTexture(256, 256, (ctx) => drawNote(ctx, it))),
     title: canvasTexture(300, 200, drawTitle),
     polaroid: canvasTexture(256, 300, drawPolaroid),
   }), []);
@@ -175,6 +154,8 @@ export default function CorkBoard() {
   });
   useFrame((_, dt) => {
     const { workSel, page } = useRoom.getState();
+    // the picked note lifts off the cork and grows a little; no glow, which pushed the bright yellow note past the
+    // bloom threshold and fogged its writing
     notes.current.forEach((g, i) => {
       if (!g) return;
       const sel = page === "work" && workSel === i, hov = hovered.current === i;
@@ -182,7 +163,6 @@ export default function CorkBoard() {
       g.position.z += (0.014 + i * 0.0004 + z - g.position.z) * Math.min(1, dt * 10);
       const s = sel ? 1.07 : 1;
       g.scale.setScalar(g.scale.x + (s - g.scale.x) * Math.min(1, dt * 10));
-      (m.notes[i] as THREE.MeshStandardMaterial).emissive.setScalar(sel ? 0.06 : 0);
     });
   });
 
@@ -191,9 +171,9 @@ export default function CorkBoard() {
       <group {...clickable("CORK BOARD · WORK", () => useRoom.getState().go("work"))}>
         <mesh position={[0, 0, -0.005]} castShadow receiveShadow material={m.frame}><primitive object={soft(1.14, 0.79, 0.03)} attach="geometry" /></mesh>
         <mesh position={[0, 0, 0.0105]} receiveShadow material={m.cork}><planeGeometry args={[1.08, 0.73]} /></mesh>
-        <mesh position={[-0.42, 0.225, 0.013]} rotation-z={0.05} material={m.title}><planeGeometry args={[0.18, 0.12]} /></mesh>
-        <mesh position={[0.36, -0.13, 0.013]} rotation-z={-0.07} material={m.polaroid}><planeGeometry args={[0.15, 0.176]} /></mesh>
-        <mesh position={[0.36, -0.13 + 0.075, 0.02]} material={m.pins[4]}><sphereGeometry args={[0.008, 12, 10]} /></mesh>
+        <mesh position={[-0.37, 0.205, 0.013]} rotation-z={0.05} material={m.title}><planeGeometry args={[0.18, 0.12]} /></mesh>
+        <mesh position={[POLAROID.x, POLAROID.y, 0.013]} rotation-z={POLAROID.rot} material={m.polaroid}><planeGeometry args={[POLAROID.w, POLAROID.h]} /></mesh>
+        <mesh position={[POLAROID.x, POLAROID.y + 0.075, 0.02]} material={m.pins[4]}><sphereGeometry args={[0.008, 12, 10]} /></mesh>
       </group>
       <mesh geometry={fairy.wire} material={wireMat} />
       {fairy.bulbs.map((p, i) => <mesh key={i} position={p} material={bulbMat}><sphereGeometry args={[0.006, 8, 6]} /></mesh>)}
@@ -216,7 +196,7 @@ export default function CorkBoard() {
             onPointerOut={() => { hovered.current = -1; props.onPointerOut(); }}
           >
             <mesh castShadow receiveShadow material={m.notes[i]}><planeGeometry args={[it.w, it.h]} /></mesh>
-            <mesh position={[0, it.h / 2 - pinInset(it), 0.016]} castShadow material={m.pins[i % 4]}><sphereGeometry args={[0.0085, 14, 10]} /></mesh>
+            <mesh position={[0, it.h / 2 - PIN_INSET, 0.016]} castShadow material={m.pins[i % 4]}><sphereGeometry args={[0.0085, 14, 10]} /></mesh>
           </group>
         );
       })}

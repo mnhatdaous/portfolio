@@ -55,7 +55,6 @@ html.soft .lf-soft { display: block; }
 .lf-sec { padding: 28px 0 8px; border-top: 1px solid var(--rule); margin-top: 24px; }
 .lf-sec h2 { font-family: var(--mono); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sub); margin: 0 0 14px; font-weight: 500; }
 .lf-sec > p { margin: 0 0 12px; max-width: 40em; }
-.lf-grp { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sub); margin: 30px 0 6px; font-weight: 500; }
 .lf-row { padding: 14px 0; border-bottom: 1px dashed var(--rule); }
 .lf-row:last-child { border-bottom: 0; }
 .lf-row p { margin: 4px 0 0; }

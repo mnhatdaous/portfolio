@@ -20,15 +20,6 @@ export type Job = {
   note: string;
 };
 
-export type Build = {
-  id: string;
-  title: string;
-  at: string;
-  years: string;
-  blurb: string;
-  tech: string[];
-};
-
 export type Skill = {
   name: string;
   /** other spellings to look for in a job's tech list ("Kubernetes" also matches "GKE") */
@@ -153,42 +144,6 @@ export const jobs: Job[] = [
     tech: ["React", "Redux", "Ant Design", "Node.js", "Go", "gRPC", "REST APIs", "PostgreSQL", "MongoDB", "Redis", "Socket.IO", "TypeORM", "Webpack", "Babel"],
     team: 15,
     note: "#ffb36b",
-  },
-];
-
-// Pieces of work worth their own index card. All of them come from the CV's bullets.
-export const builds: Build[] = [
-  {
-    id: "payments",
-    title: "Payment service",
-    at: "AusyncLab",
-    years: "2023–now",
-    blurb: "ZaloPay orders and callbacks, bank-transfer webhooks, subscription activation and Discord notifications, in one service.",
-    tech: ["Python", "FastAPI", "Rust", "PostgreSQL", "Redis"],
-  },
-  {
-    id: "rust",
-    title: "Python → Rust",
-    at: "AusyncLab",
-    years: "2023–now",
-    blurb: "Helped move the payment, voice and event-broker services from Python to Rust, with Axum and Tiberius.",
-    tech: ["Rust", "Axum", "Python"],
-  },
-  {
-    id: "postgres",
-    title: "Azure SQL → PostgreSQL 16",
-    at: "AusyncLab",
-    years: "2023–now",
-    blurb: "Helped migrate the database: schema changes, bulk-load tooling and the service cutover.",
-    tech: ["PostgreSQL", "SQL Server", "Azure"],
-  },
-  {
-    id: "gke",
-    title: "Shipping to GKE",
-    at: "AusyncLab",
-    years: "2023–now",
-    blurb: "Services deploy to Google Kubernetes Engine through GitHub Actions pipelines with automated quality gates.",
-    tech: ["GKE", "Docker", "GitHub Actions", "Google Cloud"],
   },
 ];
 

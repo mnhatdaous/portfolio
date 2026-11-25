@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { allSkills, builds, jobs, liveLinks, profile, skillGroups, usedAt, type Build, type Job } from "@/content/profile";
+import { allSkills, jobs, liveLinks, profile, skillGroups, usedAt, type Job } from "@/content/profile";
 import { STATIONS } from "../camera/stations";
 import { sound } from "../lib/audio";
 import { music } from "../lib/music";
-import { layout, MENU, narrow, useRoom, WORK_ITEMS, type Page } from "../store";
+import { layout, MENU, narrow, useRoom, type Page } from "../store";
 import Music from "./Music";
 
 const saigonTime = () => new Intl.DateTimeFormat("en-GB", { timeZone: profile.timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
@@ -39,27 +39,13 @@ function JobDetail({ j }: { j: Job }) {
   );
 }
 
-function BuildDetail({ b }: { b: Build }) {
-  return (
-    <div className="detail">
-      <h4>{b.title}</h4>
-      <div className="meta">{b.at} · {b.years}</div>
-      <p>{b.blurb}</p>
-      <div className="chips">{b.tech.map((t) => <span key={t}>{t}</span>)}</div>
-    </div>
-  );
-}
-
 function WorkBody() {
   const sel = useRoom((s) => s.workSel);
   const select = useRoom((s) => s.selectWork);
-  const item = WORK_ITEMS[sel];
-  const job = item.kind === "job" ? jobs.find((j) => j.id === item.id) : undefined;
-  const build = item.kind === "build" ? builds.find((b) => b.id === item.id) : undefined;
+  const job = jobs[sel];
   return (
     <>
       {job && <JobDetail j={job} />}
-      {build && <BuildDetail b={build} />}
       <h3>Companies</h3>
       <ul className="list">
         {jobs.map((j, i) => (
@@ -67,17 +53,6 @@ function WorkBody() {
             <button aria-current={sel === i} onClick={() => select(i)}>
               <span><span className="sw" style={{ background: j.note }} />{j.title}{j.org ? <span style={{ color: "var(--muted)" }}> · {j.org}</span> : null}</span>
               <span className="y">{j.years}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      <h3>Builds</h3>
-      <ul className="list">
-        {builds.map((b, i) => (
-          <li key={b.id}>
-            <button aria-current={sel === jobs.length + i} onClick={() => select(jobs.length + i)}>
-              <span>{b.title}</span>
-              <span className="y">{b.at}</span>
             </button>
           </li>
         ))}

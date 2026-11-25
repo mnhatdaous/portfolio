@@ -34,9 +34,9 @@ and serve `out/` at `/portfolio/`.
 
 ## Change the content
 
-Everything the site says is in [`content/profile.ts`](content/profile.ts): the jobs (one sticky note each), the
-builds (index cards), the skills (one book each), the links, and the music the bottom bar plays (a file in `public/audio/`). Both the room and
-the plain page read from it.
+Everything the site says is in [`content/profile.ts`](content/profile.ts): the jobs (one sticky note each on the cork
+board), the skills (one book each), the links, and the music the bottom bar plays (a file in `public/audio/`). Both the
+room and the plain page read from it.
 
 Still to do:
 - if you want your name with diacritics on the site, change `profile.name`
