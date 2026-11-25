@@ -2,9 +2,10 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { BACK_LABEL, clickable, clickOutside, solid } from "../lib/interact";
-import { canvasTexture, concreteTexture, plasterTexture, rng, rugTexture } from "../lib/textures";
+import { concreteTexture, plasterTexture, rugTexture } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 
@@ -299,38 +300,48 @@ function LightSwitch({ x, y, z }: { x: number; y: number; z: number }) {
  * at the edges */
 const pillow = (w: number, h: number, d: number, k = 0.25) => new RoundedBoxGeometry(1, 1, 1, 5, k).scale(w, h, d);
 
-/** the desk chair: a leather executive chair in deep brown, its high back and seat stitched into plump horizontal
- * channels, with padded arms on black steel and a black five-star base on twin-wheel casters with a chrome collar. It's
- * been rolled to the end of the desk and left turned toward it, so nothing on the desk is hidden from the middle of the
- * room. A click spins it round once. Its front is -z. */
-const SEAT_Y = 0.47, BAND = 0.115;
+/** the desk chair: a swivel barrel chair in deep emerald velvet. One plump shell wraps round the seat, channel-tufted,
+ * standing tall at the back and sweeping down into the arms, its ends rounded off; a deep round cushion piped in brass
+ * sits inside it, all on a polished brass five-star base on black casters. It's been rolled to the end of the desk and
+ * left turned toward it, so nothing on the desk is hidden from the middle of the room. A click spins it round once.
+ * Its front is -z. */
+const SEAT_Y = 0.47;
+const SHELL = { r: 0.265, t: 0.095, arc: 1.95, channels: 13 };
+/** the shell: round the arc (v) its cross-section (u) runs up the inside, over the rounded top and down the outside */
+function barrelShell() {
+  const { r: R, t: T, arc: A, channels: N } = SHELL;
+  return new ParametricGeometry((u, v, out) => {
+    const th = (v * 2 - 1) * A;
+    const end = Math.sin((Math.min(1, (A - Math.abs(th)) / 0.34) * Math.PI) / 2);
+    // between the grooves the velvet puffs out, most on the inside you lean against
+    const g = Math.pow(Math.abs(Math.sin(v * N * Math.PI)), 0.55);
+    const h = (0.05 + (0.15 + 0.25 * Math.pow(Math.cos(th * 0.6), 2)) * end) * (0.985 + 0.015 * g);
+    const t = T * (0.3 + 0.7 * end), inner = R - (t / 2) * (0.55 + 0.45 * g), outer = R + (t / 2) * (0.88 + 0.12 * g), top = h - t / 2;
+    let rr: number, y: number;
+    if (u < 0.35) {
+      rr = inner;
+      y = (u / 0.35) * top;
+    } else if (u < 0.65) {
+      const a = Math.PI * (1 - (u - 0.35) / 0.3);
+      rr = (inner + outer) / 2 + (Math.cos(a) * (outer - inner)) / 2;
+      y = top + (Math.sin(a) * t) / 2;
+    } else {
+      rr = outer;
+      y = (1 - (u - 0.65) / 0.35) * top;
+    }
+    out.set(Math.sin(th) * rr, y, Math.cos(th) * rr);
+  }, 36, 180);
+}
+/** a deep round seat cushion, its edge rounded over */
+const CUSHION = [[0, 0], [0.21, 0], [0.236, 0.014], [0.246, 0.05], [0.236, 0.086], [0.21, 0.1], [0.08, 0.104], [0, 0.104]].map(([x, y]) => new THREE.Vector2(x, y));
+
 function Chair() {
-  const m = useMemo(() => {
-    // the leather's grain: a fine mottle the light catches
-    const grain = canvasTexture(128, 128, (ctx, w, h) => {
-      const r = rng(83);
-      ctx.fillStyle = "#808080";
-      ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 2600; i++) {
-        const v = Math.round(100 + r() * 60);
-        ctx.fillStyle = `rgb(${v},${v},${v})`;
-        ctx.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2);
-      }
-    }, { repeat: [4, 4], color: false }).texture;
-    return {
-      leather: new THREE.MeshPhysicalMaterial({ color: "#46281a", roughness: 0.56, bumpMap: grain, bumpScale: 0.5, clearcoat: 0.15, clearcoatRoughness: 0.5, sheen: 0.2, sheenColor: new THREE.Color("#b07a50") }),
-      steel: new THREE.MeshStandardMaterial({ color: "#1c1d20", roughness: 0.35, metalness: 0.6 }),
-      chrome: new THREE.MeshStandardMaterial({ color: "#c9ccd1", roughness: 0.18, metalness: 0.95 }),
-      rubber: new THREE.MeshStandardMaterial({ color: "#121314", roughness: 0.7 }),
-    };
-  }, []);
-  const g = useMemo(() => ({
-    seat: pillow(0.52, 0.08, 0.5, 0.3),
-    seatBand: pillow(0.45, 0.05, 0.135, 0.5),
-    back: pillow(0.5, 0.76, 0.09, 0.28),
-    backBand: pillow(0.43, 0.14, 0.05, 0.5),
-    pad: pillow(0.075, 0.05, 0.3, 0.4),
+  const m = useMemo(() => ({
+    velvet: new THREE.MeshPhysicalMaterial({ color: "#174d39", roughness: 0.78, sheen: 1, sheenColor: new THREE.Color("#8fdcb4"), sheenRoughness: 0.32 }),
+    brass: new THREE.MeshStandardMaterial({ color: "#c9a35e", roughness: 0.25, metalness: 0.95 }),
+    black: new THREE.MeshStandardMaterial({ color: "#151618", roughness: 0.55, metalness: 0.2 }),
   }), []);
+  const g = useMemo(() => ({ shell: barrelShell(), cushion: new THREE.LatheGeometry(CUSHION, 48) }), []);
   const top = useRef<THREE.Group>(null), spin = useRef(-1);
   useFrame((_, dt) => {
     const o = top.current;
@@ -342,44 +353,23 @@ function Chair() {
   });
   return (
     <group position={[1.85, 0, -1.25]} rotation-y={0.86}>
-      {/* the base: five black spokes on twin-wheel casters, a black gas lift with a chrome collar */}
+      {/* the base: five polished brass spokes on black twin-wheel casters, a brass column and hub */}
       {[0, 1, 2, 3, 4].map((k) => (
         <group key={k} rotation-y={(k / 5) * Math.PI * 2}>
-          <mesh position={[0, 0.07, 0.15]} rotation-x={0.1} castShadow material={m.steel}><primitive object={soft(0.05, 0.03, 0.3, 0.012)} attach="geometry" /></mesh>
+          <mesh position={[0, 0.07, 0.15]} rotation-x={0.1} castShadow material={m.brass}><primitive object={soft(0.045, 0.026, 0.3, 0.011)} attach="geometry" /></mesh>
           {[-1, 1].map((w) => (
-            <mesh key={w} position={[w * 0.013, 0.03, 0.315]} rotation-z={Math.PI / 2} castShadow material={m.rubber}><cylinderGeometry args={[0.03, 0.03, 0.013, 18]} /></mesh>
+            <mesh key={w} position={[w * 0.013, 0.03, 0.315]} rotation-z={Math.PI / 2} castShadow material={m.black}><cylinderGeometry args={[0.03, 0.03, 0.013, 18]} /></mesh>
           ))}
         </group>
       ))}
-      <mesh position={[0, 0.09, 0]} castShadow material={m.steel}><cylinderGeometry args={[0.05, 0.055, 0.05, 24]} /></mesh>
-      <mesh position={[0, 0.235, 0]} castShadow material={m.steel}><cylinderGeometry args={[0.026, 0.026, 0.25, 16]} /></mesh>
-      <mesh position={[0, 0.33, 0]} material={m.chrome}><cylinderGeometry args={[0.028, 0.028, 0.03, 16]} /></mesh>
+      <mesh position={[0, 0.09, 0]} castShadow material={m.brass}><cylinderGeometry args={[0.045, 0.055, 0.05, 32]} /></mesh>
+      <mesh position={[0, 0.25, 0]} castShadow material={m.brass}><cylinderGeometry args={[0.022, 0.022, 0.3, 20]} /></mesh>
       {/* everything above the column turns */}
       <group ref={top} {...clickable("CHAIR · GIVE IT A SPIN", () => { if (spin.current < 0) spin.current = 0; })}>
-        <mesh position={[0, 0.38, 0.02]} castShadow material={m.steel}><primitive object={soft(0.24, 0.05, 0.26, 0.015)} attach="geometry" /></mesh>
-        <mesh position={[0, 0.415, 0]} castShadow material={m.steel}><primitive object={soft(0.5, 0.03, 0.48, 0.012)} attach="geometry" /></mesh>
-        {/* the seat: one cushion, its top stitched into four puffed channels that stop short of its sides */}
-        <mesh geometry={g.seat} position={[0, SEAT_Y - 0.01, 0]} castShadow receiveShadow material={m.leather} />
-        {[-0.165, -0.055, 0.055, 0.165].map((z) => (
-          <mesh key={z} geometry={g.seatBand} position={[0, SEAT_Y + 0.018, z]} castShadow receiveShadow material={m.leather} />
-        ))}
-        {/* the back, leaning a little: a black shell, the upholstered back on it, its face stitched into six puffed
-            channels framed by the leather round them */}
-        <group position={[0, SEAT_Y + 0.05, 0.25]} rotation-x={-0.14}>
-          <mesh position={[0, 0.38, 0.055]} castShadow material={m.steel}><primitive object={soft(0.5, 0.78, 0.03, 0.012)} attach="geometry" /></mesh>
-          <mesh geometry={g.back} position={[0, 0.38, 0.005]} castShadow receiveShadow material={m.leather} />
-          {[0, 1, 2, 3, 4, 5].map((k) => (
-            <mesh key={k} geometry={g.backBand} position={[0, 0.09 + k * BAND, -0.035]} castShadow receiveShadow material={m.leather} />
-          ))}
-        </group>
-        {/* the arms: a black steel post up from under the seat, a padded leather rest on it */}
-        {[-1, 1].map((sx) => (
-          <group key={sx}>
-            <mesh position={[sx * 0.27, 0.43, 0.06]} castShadow material={m.steel}><primitive object={soft(0.08, 0.03, 0.06, 0.01)} attach="geometry" /></mesh>
-            <mesh position={[sx * 0.3, 0.55, 0.06]} castShadow material={m.steel}><primitive object={soft(0.03, 0.24, 0.05, 0.012)} attach="geometry" /></mesh>
-            <mesh geometry={g.pad} position={[sx * 0.3, 0.69, 0]} castShadow receiveShadow material={m.leather} />
-          </group>
-        ))}
+        <mesh position={[0, 0.4, 0]} castShadow material={m.black}><cylinderGeometry args={[0.2, 0.17, 0.04, 40]} /></mesh>
+        <mesh geometry={g.shell} position={[0, SEAT_Y - 0.06, 0]} castShadow receiveShadow material={m.velvet} />
+        <mesh geometry={g.cushion} position={[0, SEAT_Y - 0.052, -0.01]} castShadow receiveShadow material={m.velvet} />
+        <mesh position={[0, SEAT_Y + 0.036, -0.01]} rotation-x={Math.PI / 2} castShadow material={m.brass}><torusGeometry args={[0.236, 0.005, 8, 64]} /></mesh>
       </group>
     </group>
   );
