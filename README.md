@@ -79,7 +79,8 @@ which reads as far away.
 
 | Where | What |
 |---|---|
-| `app/layout.tsx` | fonts, and the boot script that picks the room or the plain page before first paint |
+| `app/layout.tsx` | fonts, the title and link-preview tags, and the boot script that picks the room or the plain page before first paint |
+| `public/og.jpg` | the picture link previews show (1200 × 630: the profile photo, name and role) |
 | `components/StaticSite.tsx` | the plain (lo-fi) page |
 | `components/room/Experience.tsx` | the canvas, keyboard, back/forward |
 | `components/room/store.ts` | page state, selection, lamps |

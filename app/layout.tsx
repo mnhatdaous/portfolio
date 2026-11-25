@@ -7,10 +7,17 @@ const display = Be_Vietnam_Pro({ subsets: ["latin", "vietnamese"], weight: ["400
 const mono = JetBrains_Mono({ subsets: ["latin", "vietnamese"], weight: ["400", "500", "700"], variable: "--font-mono" });
 const hand = Patrick_Hand({ subsets: ["latin", "vietnamese"], weight: "400", variable: "--font-hand" });
 
+/** where the site is published: link previews need absolute URLs for the page and its picture */
+const SITE = "https://mnhatdaous.github.io/portfolio/";
+/** the picture link previews show (LinkedIn, Facebook, Slack, X…): public/og.jpg, made from the profile photo */
+const CARD = { url: "og.jpg", width: 1200, height: 630, alt: `${profile.name}, ${profile.role}` };
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: `${profile.name} · ${profile.role}`,
   description: profile.dek,
-  openGraph: { title: profile.name, description: profile.dek, type: "website" },
+  openGraph: { title: profile.name, description: profile.dek, type: "website", url: SITE, images: [CARD] },
+  twitter: { card: "summary_large_image", title: profile.name, description: profile.dek, images: [CARD] },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#dde7ee" };
