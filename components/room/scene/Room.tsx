@@ -13,13 +13,13 @@ import { useRoom } from "../store";
 // climbing with the roof. From the middle the view fills half the circle and the sky shows overhead; the back half of
 // the room is walls under a flat ceiling, with the board, the bookshelf, the pictures and the door.
 // Metres; y up; the window wall is at z = -2.3 and the camera starts in the middle, facing it.
-export const ROOM = { x0: -3.2, x1: 3.2, z0: -2.3, z1: 3.3, h: 3.0 };
+export const ROOM = { x0: -3.2, x1: 3.2, z0: -2.3, z1: 3.3, h: 3.35 };
 /** the walls are this thick, built outward from the room's inner faces */
 export const WALL_T = 0.16;
 /** the big window's sill; the side windows start lower and run back to z = sideZ1 */
 export const WIN = { y0: 0.8, sideY0: 0.5, sideZ1: 0.35 };
 /** the glass roof: it rises from the eave over the big window, `pitch` from level, until it meets the flat ceiling */
-export const ROOF = { eave: 1.9, pitch: THREE.MathUtils.degToRad(38) };
+export const ROOF = { eave: 2.3, pitch: THREE.MathUtils.degToRad(38) };
 const TAN = Math.tan(ROOF.pitch), COS = Math.cos(ROOF.pitch), SIN = Math.sin(ROOF.pitch);
 /** where the slope meets the flat ceiling */
 export const ROOF_Z = ROOM.z0 + (ROOM.h - ROOF.eave) / TAN;
@@ -42,10 +42,10 @@ const WALLS: { p: V3; s: V3; face: [number, number] }[] = [
 ];
 
 type Box = { p: V3; s: V3; rx?: number };
-// ---------------------------------------------------------------- slim black steel frames, stone sills, the roof's bones
+// ---------------------------------------------------------------- thin black steel frames, stone sills, the roof's bones
 // the rafters, and the big window's mullions under them, line up across the room
-const RAFTER_X = [ROOM.x0 + 0.04, -2.08, -0.95, 0.95, 2.08, ROOM.x1 - 0.04];
-const RAFTER_D = 0.1, SLOPE = (ROOF_Z - ROOM.z0) / COS;
+const RAFTER_X = [ROOM.x0 + 0.02, -2.08, -0.95, 0.95, 2.08, ROOM.x1 - 0.02];
+const RAFTER_D = 0.07, SLOPE = (ROOF_Z - ROOM.z0) / COS;
 /** a point on the glass line at z, moved `d` in from the glass (toward the room) */
 const under = (z: number, d: number): [number, number] => [ROOF.eave + (z - ROOM.z0) * TAN - d * COS, z + d * SIN];
 /** the purlin across the middle of the slope; the pendant over the desk hangs from it */
@@ -57,30 +57,30 @@ const SILLS: Box[] = [
   ...SIDES.map(({ s, x }) => ({ p: [x - s * 0.015, WIN.sideY0 + 0.012, SIDE_MID] as V3, s: [T + 0.03, 0.024, SIDE_LEN] as V3 })),
 ];
 const FRAMES: Box[] = [
-  // the big window: a beam at the eave where the roof starts, mullions under the rafters, a rail along the sill
-  { p: [0, ROOF.eave, ROOM.z0 - T / 2], s: [W + 2 * T, 0.08, T + 0.02] },
-  ...RAFTER_X.slice(1, -1).map((x) => ({ p: [x, (WIN.y0 + 0.024 + ROOF.eave - 0.04) / 2, ROOM.z0 - T / 2] as V3, s: [0.045, ROOF.eave - 0.04 - WIN.y0 - 0.024, 0.07] as V3 })),
-  { p: [0, WIN.y0 + 0.024 + 0.0175, ROOM.z0 - T / 2], s: [W, 0.035, 0.06] },
+  // the big window: a thin transom at the eave where the roof starts, mullions under the rafters, a rail along the sill
+  { p: [0, ROOF.eave, ROOM.z0 - T / 2], s: [W + 2 * T, 0.045, 0.1] },
+  ...RAFTER_X.slice(1, -1).map((x) => ({ p: [x, (WIN.y0 + 0.049 + ROOF.eave - 0.0225) / 2, ROOM.z0 - T / 2] as V3, s: [0.028, ROOF.eave - 0.0225 - WIN.y0 - 0.049, 0.05] as V3 })),
+  { p: [0, WIN.y0 + 0.024 + 0.0125, ROOM.z0 - T / 2], s: [W, 0.025, 0.05] },
   // the roof: rafters up the slope, the purlin across it, a beam where it meets the ceiling
   ...RAFTER_X.map((x) => {
     const [y, z] = under((ROOM.z0 + ROOF_Z) / 2, RAFTER_D / 2);
-    return { p: [x, y, z] as V3, s: [0.05, RAFTER_D, SLOPE] as V3, rx: -ROOF.pitch };
+    return { p: [x, y, z] as V3, s: [0.03, RAFTER_D, SLOPE] as V3, rx: -ROOF.pitch };
   }),
   (() => {
     const [y, z] = under(PURLIN_Z, RAFTER_D / 2);
-    return { p: [0, y, z] as V3, s: [W - 0.1, RAFTER_D, 0.05] as V3, rx: -ROOF.pitch };
+    return { p: [0, y, z] as V3, s: [W - 0.06, RAFTER_D, 0.03] as V3, rx: -ROOF.pitch };
   })(),
-  { p: [0, H - 0.05, ROOF_Z], s: [W + 2 * T, 0.1, 0.12] },
+  { p: [0, H - 0.03, ROOF_Z], s: [W + 2 * T, 0.06, 0.08] },
   // the side windows: a post in the front corner, mullions, a post at the back, a rail along the sill, a plate under
   // the flat ceiling (the edge rafter carries the sloped top)
   ...SIDES.flatMap(({ s, x }) => [
     // the corner post stands 1 cm proud of the wall under the big window: that wall's end shows through the side
     // window below the big sill, and on the same plane the two would flicker
-    { p: [s < 0 ? ROOM.x0 - 0.06 : ROOM.x1 + 0.06, (WIN.sideY0 + ROOF.eave) / 2, ROOM.z0 - 0.055] as V3, s: [0.12, ROOF.eave - WIN.sideY0, 0.13] as V3 },
-    ...[ROOM.z0 + SIDE_LEN / 3, ROOM.z0 + (2 * SIDE_LEN) / 3].map((z) => ({ p: [x, (WIN.sideY0 + roofAt(z)) / 2, z] as V3, s: [0.06, roofAt(z) - WIN.sideY0, 0.045] as V3 })),
-    { p: [x, (WIN.sideY0 + H) / 2, WIN.sideZ1 - 0.0175] as V3, s: [0.06, H - WIN.sideY0, 0.035] as V3 },
-    { p: [x, WIN.sideY0 + 0.024 + 0.0175, SIDE_MID] as V3, s: [0.06, 0.035, SIDE_LEN] as V3 },
-    { p: [x, H - 0.025, (ROOF_Z + WIN.sideZ1) / 2] as V3, s: [0.06, 0.05, WIN.sideZ1 - ROOF_Z] as V3 },
+    { p: [s < 0 ? ROOM.x0 - 0.025 : ROOM.x1 + 0.025, (WIN.sideY0 + ROOF.eave) / 2, ROOM.z0 - 0.02] as V3, s: [0.05, ROOF.eave - WIN.sideY0, 0.06] as V3 },
+    ...[ROOM.z0 + SIDE_LEN / 3, ROOM.z0 + (2 * SIDE_LEN) / 3].map((z) => ({ p: [x, (WIN.sideY0 + roofAt(z)) / 2, z] as V3, s: [0.04, roofAt(z) - WIN.sideY0, 0.028] as V3 })),
+    { p: [x, (WIN.sideY0 + H) / 2, WIN.sideZ1 - 0.0125] as V3, s: [0.04, H - WIN.sideY0, 0.025] as V3 },
+    { p: [x, WIN.sideY0 + 0.024 + 0.0125, SIDE_MID] as V3, s: [0.04, 0.025, SIDE_LEN] as V3 },
+    { p: [x, H - 0.0175, (ROOF_Z + WIN.sideZ1) / 2] as V3, s: [0.04, 0.035, WIN.sideZ1 - ROOF_Z] as V3 },
   ]),
 ];
 

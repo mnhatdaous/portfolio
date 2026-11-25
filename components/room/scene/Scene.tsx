@@ -35,8 +35,8 @@ const SLOPE = new THREE.Vector3(0, (ROOF.eave + ROOM.h) / 2 - 0.06, (ROOM.z0 + R
 const WINDOW_LIGHTS: { pos: [number, number, number]; look: THREE.Vector3; w: number; h: number; k: number }[] = [
   { pos: [0, (0.8 + ROOF.eave) / 2, -2.26], look: new THREE.Vector3(0, 1.2, 0), w: 6.2, h: ROOF.eave - 0.8, k: 1.2 },
   { pos: SLOPE.toArray(), look: SLOPE.clone().add(new THREE.Vector3(0, -Math.cos(ROOF.pitch), Math.sin(ROOF.pitch))), w: 6.2, h: 1.7, k: 1.1 },
-  { pos: [-3.16, 1.7, -0.97], look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.3, k: 0.9 },
-  { pos: [3.16, 1.7, -0.97], look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.3, k: 0.9 },
+  { pos: [-3.16, 1.9, -0.97], look: new THREE.Vector3(0, 1.3, -0.97), w: 2.6, h: 2.7, k: 0.9 },
+  { pos: [3.16, 1.9, -0.97], look: new THREE.Vector3(0, 1.3, -0.97), w: 2.6, h: 2.7, k: 0.9 },
 ];
 
 /** an autumn afternoon: the sun low through the front-left windows, the sky's light from all the glass */
