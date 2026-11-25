@@ -17,7 +17,8 @@ import Phone from "./Phone";
 import { FiddleLeafFig, Monstera, OliveTree, RubberPlant } from "./Plants";
 import { Calendar } from "./Calendar";
 import { DeskClock, DustMotes, Mug, PendantLamp, ReadingCorner } from "./Props";
-import Room from "./Room";
+import { Guitar, Paintings } from "./Art";
+import Room, { ROOF, ROOF_Z, ROOM } from "./Room";
 
 /** the room is "ready" once it has drawn a few frames (the canvas fades in, the gate offers ENTER) */
 function Ready() {
@@ -28,11 +29,14 @@ function Ready() {
   return null;
 }
 
-// the windows as soft lights, each shining into the room from its glass
-const WINDOW_LIGHTS = [
-  { pos: [0, 1.71, -2.26] as const, look: new THREE.Vector3(0, 1.2, 0), w: 6.2, h: 1.75, k: 1.3 },
-  { pos: [-3.16, 1.56, -0.97] as const, look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.05, k: 0.9 },
-  { pos: [3.16, 1.56, -0.97] as const, look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.05, k: 0.9 },
+// the windows as soft lights, each shining into the room from its glass: the big window, the glass roof sloping up
+// over it (shining down and in), and the side windows
+const SLOPE = new THREE.Vector3(0, (ROOF.eave + ROOM.h) / 2 - 0.06, (ROOM.z0 + ROOF_Z) / 2 + 0.05);
+const WINDOW_LIGHTS: { pos: [number, number, number]; look: THREE.Vector3; w: number; h: number; k: number }[] = [
+  { pos: [0, (0.8 + ROOF.eave) / 2, -2.26], look: new THREE.Vector3(0, 1.2, 0), w: 6.2, h: ROOF.eave - 0.8, k: 1.2 },
+  { pos: SLOPE.toArray(), look: SLOPE.clone().add(new THREE.Vector3(0, -Math.cos(ROOF.pitch), Math.sin(ROOF.pitch))), w: 6.2, h: 1.7, k: 1.1 },
+  { pos: [-3.16, 1.7, -0.97], look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.3, k: 0.9 },
+  { pos: [3.16, 1.7, -0.97], look: new THREE.Vector3(0, 1.2, -0.97), w: 2.6, h: 2.3, k: 0.9 },
 ];
 
 /** an autumn afternoon: the sun low through the front-left windows, the sky's light from all the glass */
@@ -88,6 +92,8 @@ export default function Scene() {
       <FiddleLeafFig />
       <CorkBoard />
       <Calendar />
+      <Paintings />
+      <Guitar />
       <Bookshelf />
       <ReadingCorner />
       <DustMotes />

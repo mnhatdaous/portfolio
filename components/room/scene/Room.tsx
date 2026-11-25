@@ -1,21 +1,30 @@
 "use client";
-import { useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { BACK_LABEL, clickable, clickOutside, solid } from "../lib/interact";
-import { canvasTexture, concreteTexture, plasterTexture, rng, rugTexture } from "../lib/textures";
+import { concreteTexture, plasterTexture, rugTexture } from "../lib/textures";
 import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 
-// The study: one room on a hill above the lake. The big window over the desk runs corner to corner and the side
-// windows run back to the middle of the room, so from the middle the view fills half the circle; the back half is
-// walls, with the board, the bookshelves and the door.
+// The study: one room on a hill above the lake. Over the desk the glass runs corner to corner and on up into a glazed
+// roof between slim black steel rafters, like a sunroom; the side windows run back to the middle of the room, their tops
+// climbing with the roof. From the middle the view fills half the circle and the sky shows overhead; the back half of
+// the room is walls under a flat ceiling, with the board, the bookshelf, the pictures and the door.
 // Metres; y up; the window wall is at z = -2.3 and the camera starts in the middle, facing it.
 export const ROOM = { x0: -3.2, x1: 3.2, z0: -2.3, z1: 3.3, h: 3.0 };
 /** the walls are this thick, built outward from the room's inner faces */
 export const WALL_T = 0.16;
-/** the big window's sill and head; the side windows start lower and run back to z = sideZ1 */
-export const WIN = { y0: 0.8, y1: 2.62, sideY0: 0.5, sideZ1: 0.35 };
+/** the big window's sill; the side windows start lower and run back to z = sideZ1 */
+export const WIN = { y0: 0.8, sideY0: 0.5, sideZ1: 0.35 };
+/** the glass roof: it rises from the eave over the big window, `pitch` from level, until it meets the flat ceiling */
+export const ROOF = { eave: 1.9, pitch: THREE.MathUtils.degToRad(38) };
+const TAN = Math.tan(ROOF.pitch), COS = Math.cos(ROOF.pitch), SIN = Math.sin(ROOF.pitch);
+/** where the slope meets the flat ceiling */
+export const ROOF_Z = ROOM.z0 + (ROOM.h - ROOF.eave) / TAN;
+/** the glass overhead at z: on the slope, or the flat ceiling behind it */
+export const roofAt = (z: number) => Math.min(ROOM.h, ROOF.eave + (z - ROOM.z0) * TAN);
 
 type V3 = [number, number, number];
 const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h, T = WALL_T, CZ = (ROOM.z0 + ROOM.z1) / 2;
@@ -25,43 +34,53 @@ const SIDES = [-1, 1].map((s) => ({ s, x: s < 0 ? ROOM.x0 - T / 2 : ROOM.x1 + T 
 /** wall pieces around the windows, and the size of the face each shows the room (for the plaster's scale) */
 const WALLS: { p: V3; s: V3; face: [number, number] }[] = [
   { p: [0, WIN.y0 / 2, ROOM.z0 - T / 2], s: [W + 2 * T, WIN.y0, T], face: [W, WIN.y0] },
-  { p: [0, (WIN.y1 + H) / 2, ROOM.z0 - T / 2], s: [W + 2 * T, H - WIN.y1, T], face: [W, H - WIN.y1] },
   ...SIDES.flatMap(({ x }) => [
     { p: [x, WIN.sideY0 / 2, SIDE_MID] as V3, s: [T, WIN.sideY0, SIDE_LEN] as V3, face: [SIDE_LEN, WIN.sideY0] as [number, number] },
-    { p: [x, (WIN.y1 + H) / 2, SIDE_MID] as V3, s: [T, H - WIN.y1, SIDE_LEN] as V3, face: [SIDE_LEN, H - WIN.y1] as [number, number] },
     { p: [x, H / 2, WIN.sideZ1 + BACK_LEN / 2] as V3, s: [T, H, BACK_LEN] as V3, face: [BACK_LEN, H] as [number, number] },
   ]),
   { p: [0, H / 2, ROOM.z1 + T / 2], s: [W + 2 * T, H, T], face: [W, H] },
 ];
 
-type Box = { p: V3; s: V3 };
-const SIDE_H = WIN.y1 - WIN.sideY0, SIDE_C = (WIN.sideY0 + WIN.y1) / 2, BAR = 0.035;
+type Box = { p: V3; s: V3; rx?: number };
+// ---------------------------------------------------------------- slim black steel frames, stone sills, the roof's bones
+// the rafters, and the big window's mullions under them, line up across the room
+const RAFTER_X = [ROOM.x0 + 0.04, -2.08, -0.95, 0.95, 2.08, ROOM.x1 - 0.04];
+const RAFTER_D = 0.1, SLOPE = (ROOF_Z - ROOM.z0) / COS;
+/** a point on the glass line at z, moved `d` in from the glass (toward the room) */
+const under = (z: number, d: number): [number, number] => [ROOF.eave + (z - ROOM.z0) * TAN - d * COS, z + d * SIN];
+/** the purlin across the middle of the slope; the pendant over the desk hangs from it */
+const PURLIN_Z = -1.7;
+export const HANG = { y: under(PURLIN_Z, RAFTER_D)[0], z: under(PURLIN_Z, RAFTER_D)[1] };
 
-/** the window openings: stone sills, white linings at the heads and ends */
 const SILLS: Box[] = [
   { p: [0, WIN.y0 + 0.012, ROOM.z0 - T / 2 + 0.015], s: [W, 0.024, T + 0.03] },
   ...SIDES.map(({ s, x }) => ({ p: [x - s * 0.015, WIN.sideY0 + 0.012, SIDE_MID] as V3, s: [T + 0.03, 0.024, SIDE_LEN] as V3 })),
 ];
-const LININGS: Box[] = [
-  { p: [0, WIN.y1 - 0.012, ROOM.z0 - T / 2], s: [W, 0.024, T] },
-  ...SIDES.flatMap(({ x }) => [
-    { p: [x, WIN.y1 - 0.012, SIDE_MID] as V3, s: [T, 0.024, SIDE_LEN] as V3 },
-    { p: [x, SIDE_C, WIN.sideZ1 - 0.012] as V3, s: [T, SIDE_H, 0.024] as V3 },
-  ]),
-];
-/** slim black frames at the glass: mullions, a post in each front corner, bars along every edge */
 const FRAMES: Box[] = [
-  ...[-0.95, 0.95].map((x) => ({ p: [x, (WIN.y0 + WIN.y1) / 2, ROOM.z0 - T / 2] as V3, s: [0.045, WIN.y1 - WIN.y0, 0.07] as V3 })),
-  { p: [0, WIN.y0 + 0.024 + BAR / 2, ROOM.z0 - T / 2], s: [W, BAR, 0.06] },
-  { p: [0, WIN.y1 - 0.024 - BAR / 2, ROOM.z0 - T / 2], s: [W, BAR, 0.06] },
+  // the big window: a beam at the eave where the roof starts, mullions under the rafters, a rail along the sill
+  { p: [0, ROOF.eave, ROOM.z0 - T / 2], s: [W + 2 * T, 0.08, T + 0.02] },
+  ...RAFTER_X.slice(1, -1).map((x) => ({ p: [x, (WIN.y0 + 0.024 + ROOF.eave - 0.04) / 2, ROOM.z0 - T / 2] as V3, s: [0.045, ROOF.eave - 0.04 - WIN.y0 - 0.024, 0.07] as V3 })),
+  { p: [0, WIN.y0 + 0.024 + 0.0175, ROOM.z0 - T / 2], s: [W, 0.035, 0.06] },
+  // the roof: rafters up the slope, the purlin across it, a beam where it meets the ceiling
+  ...RAFTER_X.map((x) => {
+    const [y, z] = under((ROOM.z0 + ROOF_Z) / 2, RAFTER_D / 2);
+    return { p: [x, y, z] as V3, s: [0.05, RAFTER_D, SLOPE] as V3, rx: -ROOF.pitch };
+  }),
+  (() => {
+    const [y, z] = under(PURLIN_Z, RAFTER_D / 2);
+    return { p: [0, y, z] as V3, s: [W - 0.1, RAFTER_D, 0.05] as V3, rx: -ROOF.pitch };
+  })(),
+  { p: [0, H - 0.05, ROOF_Z], s: [W + 2 * T, 0.1, 0.12] },
+  // the side windows: a post in the front corner, mullions, a post at the back, a rail along the sill, a plate under
+  // the flat ceiling (the edge rafter carries the sloped top)
   ...SIDES.flatMap(({ s, x }) => [
-    { p: [x, SIDE_C, SIDE_MID] as V3, s: [0.07, SIDE_H, 0.045] as V3 },
     // the corner post stands 1 cm proud of the wall under the big window: that wall's end shows through the side
     // window below the big sill, and on the same plane the two would flicker
-    { p: [s < 0 ? ROOM.x0 - 0.06 : ROOM.x1 + 0.06, SIDE_C, ROOM.z0 - 0.055] as V3, s: [0.12, SIDE_H, 0.13] as V3 },
-    { p: [x, WIN.sideY0 + 0.024 + BAR / 2, SIDE_MID] as V3, s: [0.06, BAR, SIDE_LEN] as V3 },
-    { p: [x, WIN.y1 - 0.024 - BAR / 2, SIDE_MID] as V3, s: [0.06, BAR, SIDE_LEN] as V3 },
-    { p: [x, SIDE_C, WIN.sideZ1 - 0.024 - BAR / 2] as V3, s: [0.06, SIDE_H, BAR] as V3 },
+    { p: [s < 0 ? ROOM.x0 - 0.06 : ROOM.x1 + 0.06, (WIN.sideY0 + ROOF.eave) / 2, ROOM.z0 - 0.055] as V3, s: [0.12, ROOF.eave - WIN.sideY0, 0.13] as V3 },
+    ...[ROOM.z0 + SIDE_LEN / 3, ROOM.z0 + (2 * SIDE_LEN) / 3].map((z) => ({ p: [x, (WIN.sideY0 + roofAt(z)) / 2, z] as V3, s: [0.06, roofAt(z) - WIN.sideY0, 0.045] as V3 })),
+    { p: [x, (WIN.sideY0 + H) / 2, WIN.sideZ1 - 0.0175] as V3, s: [0.06, H - WIN.sideY0, 0.035] as V3 },
+    { p: [x, WIN.sideY0 + 0.024 + 0.0175, SIDE_MID] as V3, s: [0.06, 0.035, SIDE_LEN] as V3 },
+    { p: [x, H - 0.025, (ROOF_Z + WIN.sideZ1) / 2] as V3, s: [0.06, 0.05, WIN.sideZ1 - ROOF_Z] as V3 },
   ]),
 ];
 
@@ -71,6 +90,18 @@ const SKIRTING: Box[] = [
   { p: [0, 0.035, ROOM.z0 + 0.008], s: [W, 0.07, 0.016] },
   ...SIDES.map(({ s }) => ({ p: [s < 0 ? ROOM.x0 + 0.008 : ROOM.x1 - 0.008, 0.035, (WIN.sideZ1 + ROOM.z1) / 2] as V3, s: [0.016, 0.07, ROOM.z1 - WIN.sideZ1] as V3 })),
 ];
+
+/** the side windows' glass: from the sill up to the slope, then level under the flat ceiling (in the wall's z, y) */
+function sideGlass() {
+  const g = new THREE.Shape();
+  g.moveTo(ROOM.z0, WIN.sideY0);
+  g.lineTo(WIN.sideZ1, WIN.sideY0);
+  g.lineTo(WIN.sideZ1, H);
+  g.lineTo(ROOF_Z, H);
+  g.lineTo(ROOM.z0, ROOF.eave);
+  g.closePath();
+  return new THREE.ShapeGeometry(g);
+}
 
 function repeated(t: THREE.Texture, rx: number, ry: number) {
   const c = t.clone();
@@ -90,12 +121,13 @@ export default function Room() {
       trim: new THREE.MeshStandardMaterial({ color: "#f3f0ea", roughness: 0.75 }),
       stone: new THREE.MeshStandardMaterial({ color: "#d9d6cf", roughness: 0.45 }),
       frame: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.4, metalness: 0.55 }),
-      glass: new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.02, depthWrite: false }),
+      glass: new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.025, depthWrite: false, side: THREE.DoubleSide }),
       rug: new THREE.MeshStandardMaterial({ map: rugTexture(), roughness: 0.95 }),
       door: new THREE.MeshStandardMaterial({ color: "#4a4d52", roughness: 0.6 }),
       brass: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
     };
   }, []);
+  const side = useMemo(sideGlass, []);
   // at home the glass takes you to the window; from anywhere else a click on the view is a click outside
   const lookOut = clickable(
     () => (useRoom.getState().page === "home" ? "LOOK OUTSIDE" : BACK_LABEL),
@@ -107,18 +139,18 @@ export default function Room() {
       <mesh rotation-x={-Math.PI / 2} position={[0, 0, CZ]} receiveShadow material={m.floor} {...solid}>
         <planeGeometry args={[W, D]} />
       </mesh>
-      {/* the ceiling is a slab, so the sun only comes in through the windows */}
-      <mesh position={[0, H + 0.06, CZ]} castShadow receiveShadow material={m.ceil}>
-        <boxGeometry args={[W + 2 * T, 0.12, D + 2 * T]} />
+      {/* the flat ceiling over the back of the room is a slab, so the sun only comes in through the glass */}
+      <mesh position={[0, H + 0.06, (ROOF_Z + ROOM.z1 + T) / 2]} castShadow receiveShadow material={m.ceil}>
+        <boxGeometry args={[W + 2 * T, 0.12, ROOM.z1 + T - ROOF_Z]} />
       </mesh>
       {WALLS.map((w, i) => (
         <mesh key={i} position={w.p} castShadow receiveShadow material={m.walls[i]} {...solid}>
           <boxGeometry args={w.s} />
         </mesh>
       ))}
-      {([[SILLS, m.stone], [[...LININGS, ...SKIRTING], m.trim], [FRAMES, m.frame]] as const).flatMap(([boxes, mat], k) =>
-        boxes.map((b, i) => (
-          <mesh key={`${k}-${i}`} position={b.p} castShadow receiveShadow material={mat}>
+      {([[SKIRTING, m.trim], [SILLS, m.stone], [FRAMES, m.frame]] as const).flatMap(([boxes, mat], k) =>
+        boxes.map((b: Box, i) => (
+          <mesh key={`${k}-${i}`} position={b.p} rotation-x={b.rx ?? 0} castShadow receiveShadow material={mat}>
             <primitive object={soft(...b.s)} attach="geometry" />
           </mesh>
         )),
@@ -126,13 +158,14 @@ export default function Room() {
 
       {/* the glass: barely there, but it's what a click on the view lands on */}
       <group {...lookOut}>
-        <mesh position={[0, (WIN.y0 + WIN.y1) / 2, ROOM.z0 - T / 2]} material={m.glass}>
-          <planeGeometry args={[W, WIN.y1 - WIN.y0]} />
+        <mesh position={[0, (WIN.y0 + ROOF.eave) / 2, ROOM.z0 - T / 2]} material={m.glass}>
+          <planeGeometry args={[W, ROOF.eave - WIN.y0]} />
+        </mesh>
+        <mesh position={[0, (ROOF.eave + H) / 2, (ROOM.z0 + ROOF_Z) / 2]} rotation-x={Math.PI / 2 - ROOF.pitch} material={m.glass}>
+          <planeGeometry args={[W, SLOPE]} />
         </mesh>
         {SIDES.map(({ s, x }) => (
-          <mesh key={s} position={[x, (WIN.sideY0 + WIN.y1) / 2, SIDE_MID]} rotation-y={-s * Math.PI / 2} material={m.glass}>
-            <planeGeometry args={[SIDE_LEN, WIN.y1 - WIN.sideY0]} />
-          </mesh>
+          <mesh key={s} position={[x, 0, 0]} rotation-y={-Math.PI / 2} geometry={side} material={m.glass} />
         ))}
       </group>
 
@@ -173,66 +206,57 @@ function Door({ m }: { m: { trim: THREE.Material; door: THREE.Material; brass: T
  * at the edges */
 const pillow = (w: number, h: number, d: number, k = 0.25) => new RoundedBoxGeometry(1, 1, 1, 5, k).scale(w, h, d);
 
-/** an ergonomic desk chair: caramel woven upholstery on a cream frame, a tall back and a headrest, T-arms with soft
- * pads, a five-star base on black casters. It's been rolled to the end of the desk and left turned toward it, so
- * nothing on the desk is hidden from the middle of the room. */
+/** the desk chair: a velvet barrel chair, its back curving round the seat in plump channel-tufted pleats that step down
+ * into arms, on a brushed brass five-star base. It's been rolled to the end of the desk and left turned toward it, so
+ * nothing on the desk is hidden from the middle of the room. A click spins it round once. Its front is -z. */
+const SEAT_Y = 0.47;
+const CHANNELS = Array.from({ length: 11 }, (_, i) => {
+  const a = -1.85 + (i / 10) * 3.7, h = 0.17 + 0.19 * Math.pow(Math.cos(a * 0.62), 2);
+  return { a, h };
+});
+
 function Chair() {
-  const m = useMemo(() => {
-    const weave = canvasTexture(256, 256, (ctx, w, h) => {
-      const r = rng(71);
-      ctx.fillStyle = "#b5753f";
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 0; y < h; y += 4) { ctx.fillStyle = `rgba(80,40,15,${0.08 + r() * 0.06})`; ctx.fillRect(0, y, w, 1); }
-      for (let x = 0; x < w; x += 4) { ctx.fillStyle = `rgba(255,220,180,${0.05 + r() * 0.05})`; ctx.fillRect(x, 0, 1, h); }
-      for (let i = 0; i < 2500; i++) { ctx.fillStyle = `rgba(${r() < 0.5 ? "70,35,12" : "255,225,190"},${r() * 0.1})`; ctx.fillRect(r() * w, r() * h, 1.5, 1.5); }
-    }, { repeat: [3, 3] }).texture;
-    return {
-      fabric: new THREE.MeshPhysicalMaterial({ map: weave, roughness: 0.9, sheen: 0.6, sheenRoughness: 0.6, sheenColor: new THREE.Color("#f0c08e") }),
-      cream: new THREE.MeshStandardMaterial({ color: "#ebe5da", roughness: 0.45 }),
-      pad: new THREE.MeshStandardMaterial({ color: "#c9bdab", roughness: 0.6 }),
-      black: new THREE.MeshStandardMaterial({ color: "#1b1d20", roughness: 0.45, metalness: 0.3 }),
-      chrome: new THREE.MeshStandardMaterial({ color: "#c9ccd1", roughness: 0.18, metalness: 0.95 }),
-    };
-  }, []);
-  const g = useMemo(() => ({
-    seat: pillow(0.5, 0.08, 0.48),
-    back: pillow(0.46, 0.62, 0.075, 0.22),
-    head: pillow(0.3, 0.13, 0.075, 0.3),
-    pad: pillow(0.085, 0.03, 0.24, 0.3),
+  const m = useMemo(() => ({
+    velvet: new THREE.MeshPhysicalMaterial({ color: "#3d5a47", roughness: 0.8, sheen: 1, sheenColor: new THREE.Color("#a9c9ad"), sheenRoughness: 0.35 }),
+    brass: new THREE.MeshStandardMaterial({ color: "#c2a061", roughness: 0.28, metalness: 0.9 }),
+    black: new THREE.MeshStandardMaterial({ color: "#1b1d20", roughness: 0.45, metalness: 0.3 }),
   }), []);
+  const g = useMemo(() => ({
+    seat: pillow(0.5, 0.11, 0.48, 0.3),
+    channel: (h: number) => new THREE.CapsuleGeometry(0.044, Math.max(0.01, h - 0.088), 6, 14),
+  }), []);
+  const channels = useMemo(() => CHANNELS.map((c) => ({ ...c, geo: g.channel(c.h) })), [g]);
+  const top = useRef<THREE.Group>(null), spin = useRef(-1);
+  useFrame((_, dt) => {
+    const o = top.current;
+    if (!o || spin.current < 0) return;
+    spin.current = Math.min(1, spin.current + dt / 1.4);
+    const k = spin.current, e = 1 - Math.pow(1 - k, 3);
+    o.rotation.y = e * Math.PI * 2;
+    if (k >= 1) { o.rotation.y = 0; spin.current = -1; }
+  });
   return (
     <group position={[1.85, 0, -1.25]} rotation-y={0.86}>
-      {/* the base: five cream spokes on twin-wheel casters, a black column with a chrome collar */}
+      {/* the base: five brass spokes on black casters, a slim brass column */}
       {[0, 1, 2, 3, 4].map((k) => (
         <group key={k} rotation-y={(k / 5) * Math.PI * 2}>
-          <mesh position={[0, 0.075, 0.16]} rotation-x={0.08} castShadow material={m.cream}><primitive object={soft(0.05, 0.035, 0.3, 0.014)} attach="geometry" /></mesh>
-          {[-1, 1].map((w) => (
-            <mesh key={w} position={[w * 0.012, 0.03, 0.315]} rotation-z={Math.PI / 2} castShadow material={m.black}><cylinderGeometry args={[0.028, 0.028, 0.012, 18]} /></mesh>
-          ))}
+          <mesh position={[0, 0.07, 0.15]} rotation-x={0.1} castShadow material={m.brass}><primitive object={soft(0.03, 0.022, 0.3, 0.01)} attach="geometry" /></mesh>
+          <mesh position={[0, 0.026, 0.3]} castShadow material={m.black}><sphereGeometry args={[0.026, 14, 10]} /></mesh>
         </group>
       ))}
-      <mesh position={[0, 0.09, 0]} castShadow material={m.cream}><cylinderGeometry args={[0.05, 0.055, 0.05, 24]} /></mesh>
-      <mesh position={[0, 0.235, 0]} castShadow material={m.black}><cylinderGeometry args={[0.024, 0.024, 0.25, 16]} /></mesh>
-      <mesh position={[0, 0.33, 0]} material={m.chrome}><cylinderGeometry args={[0.026, 0.026, 0.03, 16]} /></mesh>
-      {/* the seat on its cream pan and mechanism */}
-      <mesh position={[0, 0.385, 0.02]} castShadow material={m.cream}><primitive object={soft(0.24, 0.05, 0.26, 0.015)} attach="geometry" /></mesh>
-      <mesh position={[0, 0.42, 0]} castShadow material={m.cream}><primitive object={soft(0.48, 0.02, 0.44, 0.008)} attach="geometry" /></mesh>
-      <mesh geometry={g.seat} position={[0, 0.465, 0]} castShadow receiveShadow material={m.fabric} />
-      {/* the back, leaning a little, on a cream spine, and the headrest above it */}
-      <group position={[0, 0.86, 0.24]} rotation-x={-0.1}>
-        <mesh geometry={g.back} castShadow receiveShadow material={m.fabric} />
-        <mesh position={[0, -0.2, 0.045]} castShadow material={m.cream}><primitive object={soft(0.07, 0.5, 0.03, 0.012)} attach="geometry" /></mesh>
-        <mesh position={[0, 0.34, 0.035]} castShadow material={m.cream}><primitive object={soft(0.05, 0.09, 0.02, 0.008)} attach="geometry" /></mesh>
-        <mesh geometry={g.head} position={[0, 0.405, 0.005]} castShadow receiveShadow material={m.fabric} />
+      <mesh position={[0, 0.085, 0]} castShadow material={m.brass}><cylinderGeometry args={[0.04, 0.045, 0.04, 24]} /></mesh>
+      <mesh position={[0, 0.25, 0]} castShadow material={m.brass}><cylinderGeometry args={[0.02, 0.02, 0.3, 16]} /></mesh>
+      {/* everything above the column turns */}
+      <group ref={top} {...clickable("CHAIR · GIVE IT A SPIN", () => { if (spin.current < 0) spin.current = 0; })}>
+        <mesh position={[0, 0.4, 0]} castShadow material={m.velvet}><cylinderGeometry args={[0.25, 0.22, 0.08, 40]} /></mesh>
+        <mesh geometry={g.seat} position={[0, SEAT_Y, -0.01]} castShadow receiveShadow material={m.velvet} />
+        {channels.map((c, i) => (
+          // each pleat stands on the seat's rim and leans back a little, the tall ones at the back
+          <group key={i} rotation-y={c.a}>
+            <mesh geometry={c.geo} position={[0, SEAT_Y - 0.02 + c.h / 2, 0.235]} rotation-x={0.14} castShadow receiveShadow material={m.velvet} />
+          </group>
+        ))}
       </group>
-      {/* T-arms: a cream post rising from under the seat, a soft pad on top */}
-      {[-1, 1].map((sx) => (
-        <group key={sx}>
-          <mesh position={[sx * 0.235, 0.43, 0.02]} castShadow material={m.cream}><primitive object={soft(0.09, 0.03, 0.05, 0.01)} attach="geometry" /></mesh>
-          <mesh position={[sx * 0.28, 0.55, 0.02]} castShadow material={m.cream}><primitive object={soft(0.045, 0.26, 0.05, 0.015)} attach="geometry" /></mesh>
-          <mesh geometry={g.pad} position={[sx * 0.28, 0.695, -0.02]} castShadow receiveShadow material={m.pad} />
-        </group>
-      ))}
     </group>
   );
 }

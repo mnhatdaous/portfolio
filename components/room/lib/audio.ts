@@ -176,6 +176,38 @@ class Soundscape {
   meow() { this.voice([520, 820, 430], 0.7, 0.2); }
   mrrp() { this.voice([380, 540, 470], 0.22, 0.12); }
 
+  /** a chord strummed down the strings, each a moment after the last. Each string is Karplus–Strong: a soft burst of
+   * noise run round a delay line one period of the note long, averaged a little each time round, so it rings and
+   * mellows like a plucked string; then a warm body under them all. */
+  strum(freqs: number[]) {
+    const ctx = this.ctx;
+    if (!ctx || !this.on) return;
+    const t = ctx.currentTime, sr = ctx.sampleRate, len = Math.floor(sr * 3.2), fade = sr * 0.4;
+    const warm = this.filter(ctx, "peaking", 190, 1.2);
+    warm.gain.value = 5;
+    const out = ctx.createGain();
+    out.gain.value = 0.3;
+    const body = this.filter(ctx, "lowpass", 3200);
+    body.connect(warm).connect(out).connect(this.master);
+    freqs.forEach((f, i) => {
+      const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+      const n = Math.max(2, Math.round(sr / f)), line = new Float32Array(n);
+      for (let k = 0; k < n; k++) line[k] = Math.random() * 2 - 1;
+      for (let k = 1; k < n; k++) line[k] = (line[k] + line[k - 1]) * 0.5; // a soft pick, not a sharp one
+      for (let k = 0, p = 0; k < len; k++) {
+        const q = p + 1 === n ? 0 : p + 1, v = line[p];
+        line[p] = 0.4985 * (v + line[q]);
+        d[k] = v * Math.min(1, (len - k) / fade);
+        p = q;
+      }
+      const src = ctx.createBufferSource(), g = ctx.createGain();
+      src.buffer = buf;
+      g.gain.value = 0.85 - i * 0.07;
+      src.connect(g).connect(body);
+      src.start(t + i * 0.024);
+    });
+  }
+
   click() {
     const ctx = this.ctx;
     if (!ctx || !this.on) return;

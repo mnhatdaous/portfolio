@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clickable } from "../lib/interact";
 import { canvasTexture, rng } from "../lib/textures";
@@ -10,7 +11,7 @@ import { soft } from "../lib/shapes";
 import { useRoom } from "../store";
 import { saigonTime } from "./Computer";
 import { DESK_Y } from "./Desk";
-import { ROOM } from "./Room";
+import { HANG } from "./Room";
 
 // The things that only do something small when clicked, and the plants. They're what make the room feel lived in.
 
@@ -143,11 +144,12 @@ export function PendantLamp() {
     m.bulb.color.setRGB(1, 0.95, 0.85).multiplyScalar(0.8 + 3.5 * k.current);
   });
   const label = () => (useRoom.getState().lamp ? "PENDANT · SWITCH OFF" : "PENDANT · SWITCH ON");
-  const x = 0.62, z = -1.62, y = 1.98;
+  // it hangs from the purlin across the glass roof
+  const x = 0.62, z = HANG.z, y = 1.98, top = HANG.y;
   return (
     <group position={[x, y, z]} {...clickable(label, () => useRoom.getState().toggleLamp())}>
-      <mesh position={[0, (ROOM.h - y) / 2, 0]} material={m.cord}><cylinderGeometry args={[0.003, 0.003, ROOM.h - y, 6]} /></mesh>
-      <mesh position={[0, ROOM.h - y - 0.01, 0]} material={m.shade}><cylinderGeometry args={[0.04, 0.04, 0.02, 20]} /></mesh>
+      <mesh position={[0, (top - y) / 2, 0]} material={m.cord}><cylinderGeometry args={[0.003, 0.003, top - y, 6]} /></mesh>
+      <mesh position={[0, top - y - 0.01, 0]} material={m.shade}><cylinderGeometry args={[0.04, 0.04, 0.02, 20]} /></mesh>
       <mesh position={[0, 0.005, 0]} material={m.shade}><cylinderGeometry args={[0.022, 0.026, 0.05, 20]} /></mesh>
       <group scale={[1, 0.72, 1]}>
         <mesh castShadow material={m.shade}><sphereGeometry args={[0.21, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2]} /></mesh>
@@ -159,88 +161,126 @@ export function PendantLamp() {
   );
 }
 
-// ---------------------------------------------------------------- the reading corner: an armchair and a lamp
-// clear of the shelves on the back wall and of the board on the left one
-const CORNER = new THREE.Vector3(-2.2, 0, 2.0);
+// ---------------------------------------------------------------- the reading corner: a big beanbag and a lamp
+// in the back corner under the pictures, clear of the board on the left wall
+const CORNER = new THREE.Vector3(-2.15, 0, 2.05);
 
-/** a knit throw over the armchair's arm: the arm's rounded top in section, a short fall on the inside and a long one
- * outside, run along the arm. In the arm's coordinates: x across it (outside is -x), y up, centred on z. */
-function blanketOverArm() {
-  const c = 0.548, ro = 0.072, ri = 0.06, s = new THREE.Shape();
-  s.moveTo(ro, 0.5);
-  s.lineTo(ro, c);
-  s.absarc(0, c, ro, 0, Math.PI, false);
-  s.lineTo(-ro, 0.4);
-  s.lineTo(-ri, 0.4);
-  s.lineTo(-ri, c);
-  s.absarc(0, c, ri, Math.PI, 0, true);
-  s.lineTo(ri, 0.5);
-  s.closePath();
-  const g = new THREE.ExtrudeGeometry(s, { depth: 0.36, curveSegments: 18, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.004, bevelSegments: 2 });
-  g.translate(0, 0, -0.18);
-  return g;
+/** the beanbag's surface: round it (u), and from the floor up the side, over the rim and down into the hollow you sit
+ * in (v). It has slumped the way they do: the back stands up as a backrest, the front has sagged, the cover is lumpy.
+ * Its front is +z. */
+const BAG = new THREE.SplineCurve(
+  [[0, 0], [0.36, 0], [0.5, 0.04], [0.58, 0.15], [0.59, 0.28], [0.53, 0.4], [0.41, 0.48], [0.27, 0.5], [0.13, 0.46], [0, 0.44]].map(([r, y]) => new THREE.Vector2(r, y)),
+);
+function bagPoint(u: number, v: number, out: THREE.Vector3) {
+  const p = BAG.getPoint(v), a = u * Math.PI * 2, front = Math.cos(a);
+  // the upper part is what slumps (the floor and the very middle stay put): the back rises into a rounded backrest,
+  // the front sinks a little where you sit down
+  const up = THREE.MathUtils.smoothstep(v, 0.15, 0.55) * (1 - THREE.MathUtils.smoothstep(v, 0.8, 1));
+  const lump = (Math.sin(a * 5 + v * 7) * 0.01 + Math.sin(a * 3 - v * 4 + 1) * 0.014) * Math.min(1, p.x / 0.3);
+  const back = Math.max(0, -front), r = p.x * (1 + 0.06 * back * up) + lump;
+  const y = p.y + up * (0.24 * Math.pow(back, 1.6) - 0.06 * Math.max(0, front)) + lump * up * 0.7;
+  return out.set(Math.sin(a) * r, y, Math.cos(a) * r);
+}
+/** the outward normal there, from the surface either side */
+function bagNormal(u: number, v: number, out: THREE.Vector3) {
+  const e = 0.002, a = bagPoint(u + e, v, new THREE.Vector3()).sub(bagPoint(u - e, v, new THREE.Vector3()));
+  const b = bagPoint(u, Math.min(1, v + e), new THREE.Vector3()).sub(bagPoint(u, Math.max(0, v - e), new THREE.Vector3()));
+  return out.crossVectors(a, b).normalize();
+}
+/** a knit throw lying in the hollow and spilling over the front, a little away from the cover, in folds */
+function throwOver(u0: number, u1: number, v0: number, v1: number) {
+  const p = new THREE.Vector3(), n = new THREE.Vector3();
+  return new ParametricGeometry((s, t, out) => {
+    const u = u0 + s * (u1 - u0), v = v0 + t * (v1 - v0);
+    bagPoint(u, v, p);
+    bagNormal(u, v, n);
+    const fold = (0.024 * Math.sin(s * Math.PI * 4 + t * 2.5) + 0.01 * Math.sin(s * Math.PI * 11 - t * 4)) * Math.sin(s * Math.PI);
+    const hang = 0.05 * Math.max(0, 1 - t / 0.4);
+    out.copy(p).addScaledVector(n, 0.018 + Math.abs(fold) + hang);
+    out.y = Math.max(0.004, out.y);
+  }, 40, 40);
+}
+/** corduroy: the colour and the bump of one rib, repeated round the bag */
+function corduroy(normal: boolean) {
+  return canvasTexture(32, 4, (ctx, w, h) => {
+    for (let i = 0; i < w; i++) {
+      const ph = ((i + 0.5) / w) * Math.PI * 2, slope = Math.sin(ph) * 0.6, k = 1 / Math.hypot(1, slope);
+      ctx.fillStyle = normal
+        ? `rgb(${Math.round(((slope * k + 1) / 2) * 255)},128,${Math.round(((k + 1) / 2) * 255)})`
+        : `rgb(${[239, 233, 222].map((c) => Math.round(c * (0.95 + 0.05 * Math.cos(ph)))).join(",")})`;
+      ctx.fillRect(i, 0, 1, h);
+    }
+  }, { repeat: [300, 1], color: !normal }).texture;
 }
 
 export function ReadingCorner() {
   const light = useRef<THREE.PointLight>(null);
   const k = useRef(0);
   const m = useMemo(() => ({
-    fabric: new THREE.MeshPhysicalMaterial({ color: "#6f8a7e", roughness: 0.92, sheen: 0.6, sheenColor: new THREE.Color("#b3cabf"), sheenRoughness: 0.7 }),
+    cord: new THREE.MeshPhysicalMaterial({ map: corduroy(false), normalMap: corduroy(true), normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.92, sheen: 0.7, sheenColor: new THREE.Color("#ffffff"), sheenRoughness: 0.45 }),
     // a knit: soft ribs running along the blanket
     throw: new THREE.MeshPhysicalMaterial({
       map: canvasTexture(128, 128, (ctx, w, h) => {
-        ctx.fillStyle = "#e6d7bd";
+        ctx.fillStyle = "#cbb79a";
         ctx.fillRect(0, 0, w, h);
-        for (let y = 0; y < h; y += 8) {
-          ctx.fillStyle = "rgba(120,95,60,.2)";
-          ctx.fillRect(0, y, w, 2);
-          ctx.fillStyle = "rgba(255,250,235,.25)";
-          ctx.fillRect(0, y + 4, w, 2);
+        for (let x = 0; x < w; x += 8) {
+          ctx.fillStyle = "rgba(110,85,55,.22)";
+          ctx.fillRect(x, 0, 2, h);
+          ctx.fillStyle = "rgba(255,246,228,.22)";
+          ctx.fillRect(x + 4, 0, 2, h);
         }
-      }, { repeat: [1, 6] }).texture,
-      roughness: 1, sheen: 0.5, sheenColor: new THREE.Color("#fff3dc"),
+      }, { repeat: [5, 2] }).texture,
+      roughness: 1, sheen: 0.5, sheenColor: new THREE.Color("#fff3dc"), side: THREE.DoubleSide,
     }),
-    pillow: new THREE.MeshPhysicalMaterial({ color: "#c0663a", roughness: 0.95, sheen: 0.5, sheenColor: new THREE.Color("#e9a27a") }),
-    steel: new THREE.MeshStandardMaterial({ color: "#1f2124", roughness: 0.38, metalness: 0.6 }),
+    cover: new THREE.MeshStandardMaterial({ color: "#2f4a6b", roughness: 0.7 }),
+    pages: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.9 }),
     metal: new THREE.MeshStandardMaterial({ color: "#2b2a28", roughness: 0.4, metalness: 0.7 }),
     shade: new THREE.MeshStandardMaterial({ color: "#efe2c6", emissive: new THREE.Color("#ffcf96"), emissiveIntensity: 0, roughness: 0.9, side: THREE.DoubleSide }),
   }), []);
+  const bag = useMemo(() => {
+    const geo = new ParametricGeometry((u, v, out) => bagPoint(u, v, out), 96, 56);
+    // where the surface closes to a point (the middle of the base and of the hollow) the triangles have no area and
+    // leave a zero normal, which lights as NaN and the bloom spreads it over the screen: point those down and up
+    const nrm = geo.getAttribute("normal"), uv = geo.getAttribute("uv");
+    for (let i = 0; i < nrm.count; i++) if (Math.hypot(nrm.getX(i), nrm.getY(i), nrm.getZ(i)) < 1e-4) nrm.setXYZ(i, 0, uv.getY(i) < 0.5 ? -1 : 1, 0);
+    // a book left open in the hollow
+    const at = bagPoint(0.1, 0.9, new THREE.Vector3()), n = bagNormal(0.1, 0.9, new THREE.Vector3());
+    const book = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.5));
+    return { geo, throw: throwOver(0.87, 1.07, 0.1, 0.9), book: { p: at.addScaledVector(n, 0.012), q: book } };
+  }, []);
+  // a click flops into it: it squashes and springs back
+  const flop = useRef(-1), group = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     const on = useRoom.getState().floorLamp;
     k.current += ((on ? 1 : 0) - k.current) * Math.min(1, dt * (on ? 12 : 5));
     if (light.current) light.current.intensity = 2.2 * k.current;
     m.shade.emissiveIntensity = 0.6 * k.current;
+    const g = group.current;
+    if (!g || flop.current < 0) return;
+    flop.current += dt;
+    const t = flop.current, d = 0.1 * Math.exp(-t * 4.5) * Math.cos(t * 10);
+    g.scale.set(1 + d * 0.35, 1 - d, 1 + d * 0.35);
+    if (t > 1.6) { g.scale.setScalar(1); flop.current = -1; }
   });
-  const chair = useMemo(() => ({
-    base: new RoundedBoxGeometry(0.8, 0.22, 0.76, 4, 0.05),
-    seat: new RoundedBoxGeometry(0.58, 0.13, 0.6, 4, 0.055),
-    back: new RoundedBoxGeometry(0.8, 0.56, 0.17, 4, 0.07),
-    backCushion: new RoundedBoxGeometry(0.58, 0.44, 0.13, 4, 0.06),
-    arm: new RoundedBoxGeometry(0.12, 0.26, 0.74, 4, 0.055),
-    pillow: new RoundedBoxGeometry(0.34, 0.3, 0.1, 4, 0.05),
-    throw: blanketOverArm(),
-  }), []);
   const label = () => (useRoom.getState().floorLamp ? "READING LAMP · SWITCH OFF" : "READING LAMP · SWITCH ON");
   return (
     <group>
-      {/* an armchair turned toward the windows: soft cushions, a pillow, a blanket folded over one arm */}
-      <group position={CORNER} rotation-y={2.6}>
-        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-          <mesh key={`${sx}${sz}`} position={[sx * 0.3, 0.07, sz * 0.27]} rotation={[-sz * 0.12, 0, sx * 0.12]} castShadow material={m.steel}>
-            <cylinderGeometry args={[0.017, 0.011, 0.15, 10]} />
-          </mesh>
-        ))}
-        <mesh geometry={chair.base} position={[0, 0.25, 0]} castShadow receiveShadow material={m.fabric} />
-        <mesh geometry={chair.seat} position={[0, 0.415, 0.05]} castShadow receiveShadow material={m.fabric} />
-        <mesh geometry={chair.back} position={[0, 0.62, -0.3]} rotation-x={-0.1} castShadow receiveShadow material={m.fabric} />
-        <mesh geometry={chair.backCushion} position={[0, 0.64, -0.19]} rotation-x={-0.14} castShadow receiveShadow material={m.fabric} />
-        {[-1, 1].map((sx) => (
-          <mesh key={sx} geometry={chair.arm} position={[sx * 0.34, 0.47, 0]} castShadow receiveShadow material={m.fabric} />
-        ))}
-        <mesh geometry={chair.pillow} position={[0.13, 0.6, -0.09]} rotation={[-0.28, -0.22, 0.16]} castShadow receiveShadow material={m.pillow} />
-        <mesh geometry={chair.throw} position={[-0.34, 0, 0.06]} castShadow receiveShadow material={m.throw} />
+      {/* a giant corduroy beanbag turned toward the windows, a throw spilling over its front, a book left open */}
+      <group position={CORNER} rotation-y={2.45}>
+        <group ref={group} {...clickable("BEANBAG · FLOP DOWN", () => { flop.current = 0; })}>
+          <mesh geometry={bag.geo} castShadow receiveShadow material={m.cord} />
+          <mesh geometry={bag.throw} castShadow receiveShadow material={m.throw} />
+          <group position={bag.book.p} quaternion={bag.book.q}>
+            {[-1, 1].map((sd) => (
+              <group key={sd} rotation-z={sd * 0.12}>
+                <mesh position={[sd * 0.075, 0.004, 0]} castShadow material={m.cover}><primitive object={soft(0.15, 0.006, 0.22, 0.002)} attach="geometry" /></mesh>
+                <mesh position={[sd * 0.072, 0.012, 0]} material={m.pages}><primitive object={soft(0.14, 0.012, 0.21, 0.003)} attach="geometry" /></mesh>
+              </group>
+            ))}
+          </group>
+        </group>
       </group>
-      <group position={[-2.85, 0, 2.6]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
+      <group position={[-2.95, 0, 2.95]} {...clickable(label, () => useRoom.getState().toggleFloorLamp())}>
         <mesh position={[0, 0.012, 0]} castShadow receiveShadow material={m.metal}><cylinderGeometry args={[0.14, 0.16, 0.024, 32]} /></mesh>
         <mesh position={[0, 0.75, 0]} castShadow material={m.metal}><cylinderGeometry args={[0.011, 0.011, 1.48, 10]} /></mesh>
         <mesh position={[0, 1.58, 0]} castShadow material={m.shade}><cylinderGeometry args={[0.15, 0.2, 0.28, 32, 1, true]} /></mesh>

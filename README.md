@@ -1,8 +1,10 @@
 # Dao Minh Nhat · portfolio
 
-A sunny study on a hill above a lake, on an autumn afternoon. Windows run across the front of the room and down both
-sides, so from the middle the view fills half the circle: maples turning, firs, a town on the shore, the lake and snowy
-mountains. A black cat sleeps on the desk; pet it.
+A sunny study on a hill above a lake, on an autumn afternoon. The glass over the desk runs corner to corner and on up
+into a sloped glass roof between slim black steel rafters, and the side windows climb with it, so from the middle the
+view fills half the circle and the sky shows overhead: maples turning, firs, a town on the shore, the lake and snowy
+mountains. A black cat sleeps on the desk; pet it. The Mona Lisa, The Starry Night and The Great Wave hang above a
+big corduroy beanbag, and a guitar on its stand strums when you click it.
 
 The site is the room: the computer is **About**, the cork board is **Work**, the bookshelf is **Stack** and the phone
 is **Online**. From the middle of the room you can turn all the way round; click one of them and the camera flies to it
@@ -10,9 +12,10 @@ and an info card opens beside it. The same content is also a plain page (the **L
 screen readers and slow GPUs.
 
 Built with Next.js 16 (static export), React Three Fiber and three.js. Everything is drawn in code: there are no 3D
-models or textures. The one recording is the music, an hour-long chill mix in `public/audio/` that loops (AAC, about
-46 MB, levelled to about -19 LUFS and only loaded once it plays); the wind, the birds, the lake and the cat are made with
-Web Audio.
+models, and the only images are the three paintings, small prints of public-domain scans from Wikimedia Commons in
+`public/art/`. The one recording is the music, an hour-long chill mix in `public/audio/` that loops (AAC, about
+46 MB, levelled to about -19 LUFS and only loaded once it plays); the wind, the birds, the lake and the cat, and the guitar's
+strings, are made with Web Audio.
 
 Live at **https://mnhatdaous.github.io/portfolio/**
 
@@ -86,8 +89,8 @@ which reads as far away.
 | `components/room/store.ts` | page state, selection, lamps |
 | `components/room/hud/Hud.tsx` | menu, cards, hover labels, the welcome gate |
 | `components/room/hud/Music.tsx` | the music's button in the bottom bar, and its `<audio>` element |
-| `components/room/scene/` | the room, the desk and its things, the cat, the board, the bookshelf, the wall calendar (a picture of the lake for every month), the view outside |
-| `components/room/lib/audio.ts` | wind in the trees, birds, the lake, the cat's purr and meow, all made with Web Audio |
+| `components/room/scene/` | the room and its glass roof, the desk and its things, the cat, the board, the bookshelf, the wall calendar (a picture of the lake for every month), the paintings and the guitar, the view outside |
+| `components/room/lib/audio.ts` | wind in the trees, birds, the lake, the cat's purr and meow, the guitar's strum, all made with Web Audio |
 | `components/room/lib/music.ts` | the music: starts on ENTER with sound on, fades with the sound switch, paused by its button |
 
 ## Keys and URLs
