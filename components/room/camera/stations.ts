@@ -12,8 +12,8 @@ export type StationDef = {
   fitNarrow?: number;
   /** how far the visitor may orbit either side, in radians */
   spread: number;
-  /** a fixed box, for a station that frames part of the room instead of one object */
-  box?: THREE.Box3;
+  /** metres to leave out of the measured box at the bottom and the top, such as a shelf's plinth and top board */
+  trim?: [number, number];
   /** whether the card opens beside it (and the camera frames the space the card leaves) */
   card: boolean;
 };
@@ -24,12 +24,11 @@ export const STATIONS: Record<Page, StationDef> = {
   about: { dir: [0, 0.2, 1], fit: 1.22, spread: 0.32, card: true },
   online: { dir: [-0.2, 0.36, 1], fit: 1.15, spread: 0.32, card: true },
   work: { dir: [1, 0.06, 0.06], fit: 1.04, spread: 0.3, card: true },
-  // a little from the front, so the shelves on the back wall stay out of the picture
-  stack: { dir: [-1, 0.07, -0.2], fit: 1.04, spread: 0.3, card: true },
+  // close in on the books: Bookshelf registers its frame (not the globe and the plant on top), less the plinth and the
+  // top board, and the rows run right up to the bars. Seen a little from the front, as you'd walk up to it.
+  stack: { dir: [-1, 0.07, -0.2], fit: 0.88, fitNarrow: 1, trim: [0.055, 0.08], spread: 0.3, card: true },
   // the month on the back wall, close enough to read
   calendar: { dir: [0, 0.04, -1], fit: 1.7, spread: 0.3, card: false },
-  // the middle of the shelves on the back wall, framed from above the armchair in front of them
-  library: { dir: [0, 0.06, -1], fit: 1, spread: 0.3, card: false, box: new THREE.Box3(new THREE.Vector3(-2.5, 0.85, 3.0), new THREE.Vector3(-0.3, 2.25, 3.3)) },
   // looking out: the camera stands at the glass and turns about a point on it (see windowFrame)
   window: { dir: [0, 0.16, 1], fit: 1, spread: 0.6, card: false },
 };
@@ -44,10 +43,14 @@ export function registerStation(page: Page, obj: THREE.Object3D | null) {
 
 export function stationBox(page: Page): THREE.Box3 | null {
   const def = STATIONS[page];
-  if (def.box) return def.box;
   const o = objects.get(page);
   if (!o) return null;
   o.updateWorldMatrix(true, true);
   const box = new THREE.Box3().setFromObject(o);
-  return box.isEmpty() ? null : box;
+  if (box.isEmpty()) return null;
+  if (def.trim) {
+    box.min.y += def.trim[0];
+    box.max.y -= def.trim[1];
+  }
+  return box;
 }

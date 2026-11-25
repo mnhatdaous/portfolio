@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import CameraRig from "../camera/CameraRig";
 import { useRoom } from "../store";
-import Bookshelf, { Library } from "./Bookshelf";
+import Bookshelf from "./Bookshelf";
 import Cat from "./Cat";
 import Computer from "./Computer";
 import CorkBoard from "./CorkBoard";
@@ -89,7 +89,6 @@ export default function Scene() {
       <CorkBoard />
       <Calendar />
       <Bookshelf />
-      <Library />
       <ReadingCorner />
       <DustMotes />
       <Outside />

@@ -243,7 +243,7 @@ export default function Hud() {
     sound.start(next);
     music.setSound(next);
   };
-  const label = page === "home" ? "In the room" : page === "window" ? "Looking out of the window" : page === "calendar" ? "The calendar" : page === "library" ? "The shelves" : TITLE[page];
+  const label = page === "home" ? "In the room" : page === "window" ? "Looking out of the window" : page === "calendar" ? "The calendar" : TITLE[page];
 
   return (
     <>
@@ -276,7 +276,6 @@ export default function Hud() {
         {page === "home" && <span className="hint frost">Drag or scroll to look around · open the computer, board, shelf or phone · pet the cat</span>}
         {page === "window" && <span className="hint frost">Drag to look around · click or Esc to come back</span>}
         {page === "calendar" && <span className="hint frost">Click the calendar for the next month · click outside or Esc to come back</span>}
-        {page === "library" && <span className="hint frost">Click outside or Esc to come back</span>}
         <span className="spacer" />
         <Music />
         <button className="pill frost" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>

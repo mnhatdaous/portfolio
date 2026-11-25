@@ -1,15 +1,15 @@
 import { create } from "zustand";
 import { allSkills, jobs } from "@/content/profile";
 
-// Pages are stations in the room. "window", "calendar" and "library" are close-ups with no card of their own.
-export type Page = "home" | "about" | "work" | "stack" | "online" | "window" | "calendar" | "library";
+// Pages are stations in the room. "window" and "calendar" are close-ups with no card of their own.
+export type Page = "home" | "about" | "work" | "stack" | "online" | "window" | "calendar";
 export const MENU: { page: Exclude<Page, "home" | "window">; label: string; key: string }[] = [
   { page: "about", label: "About", key: "1" },
   { page: "work", label: "Work", key: "2" },
   { page: "stack", label: "Stack", key: "3" },
   { page: "online", label: "Online", key: "4" },
 ];
-const PAGES: Page[] = ["home", "about", "work", "stack", "online", "window", "calendar", "library"];
+const PAGES: Page[] = ["home", "about", "work", "stack", "online", "window", "calendar"];
 
 export function pageFromHash(hash = typeof location !== "undefined" ? location.hash : ""): Page {
   const h = hash.replace(/^#/, "") as Page;
