@@ -233,7 +233,8 @@ export default function CameraRig() {
       } else if (s.page !== p.page && s.entered) flyTo(s.page, { prev: p.page });
     });
     look.turn = (a) => {
-      if (useRoom.getState().page !== "home") return;
+      const pg = useRoom.getState().page;
+      if (pg !== "home" && pg !== "window") return;
       dropHover();
       turn.current += a;
     };
@@ -242,12 +243,13 @@ export default function CameraRig() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // at home a scroll turns the room as well as a drag: a mouse wheel's notches, a trackpad's swipe either way
+  // at home a scroll turns the room as well as a drag, and looking out of the window it pans the view: a mouse wheel's
+  // notches, a trackpad's swipe either way
   useEffect(() => {
     const el = gl.domElement;
     const wheel = (e: WheelEvent) => {
       const s = useRoom.getState();
-      if (!s.entered || s.page !== "home" || fly.current) return;
+      if (!s.entered || (s.page !== "home" && s.page !== "window") || fly.current) return;
       e.preventDefault();
       dropHover();
       const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
@@ -302,12 +304,15 @@ export default function CameraRig() {
         f.land?.();
       }
     }
-    // the arrow keys at home: turn the head about the eye, easing out
-    if (atHome && turn.current) {
+    // a scroll or the arrow keys: at home turn the head about the eye; at the window swing the eye about the point on
+    // the glass, which the controls keep inside the view's limits; easing out either way
+    const atWindow = page === "window" && !fly.current;
+    if ((atHome || atWindow) && turn.current) {
       const a = Math.abs(turn.current) < 0.002 || reduce ? turn.current : turn.current * Math.min(1, dt * 7);
       turn.current -= a;
-      controls.target.sub(rig.position).applyAxisAngle(UP, a).add(rig.position);
-    } else if (!atHome) turn.current = 0;
+      if (atHome) controls.target.sub(rig.position).applyAxisAngle(UP, a).add(rig.position);
+      else rig.position.sub(controls.target).applyAxisAngle(UP, a).add(controls.target);
+    } else if (!atHome && !atWindow) turn.current = 0;
     controls.update();
     if (atHome) homeFacing.copy(controls.target).sub(rig.position).normalize();
 

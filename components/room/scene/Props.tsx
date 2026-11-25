@@ -161,24 +161,36 @@ export function PendantLamp() {
   );
 }
 
-// ---------------------------------------------------------------- the reading corner: a big beanbag and a lamp
+// ---------------------------------------------------------------- the reading corner: a giant beanbag and a lamp
 // in the back corner under the pictures, clear of the board on the left wall
-const CORNER = new THREE.Vector3(-2.15, 0, 2.05);
+const CORNER = new THREE.Vector3(-2.12, 0, 2.02);
+const TAU = Math.PI * 2;
+const { smoothstep } = THREE.MathUtils;
 
 /** the beanbag's surface: round it (u), and from the floor up the side, over the rim and down into the hollow you sit
- * in (v). It has slumped the way they do: the back stands up as a backrest, the front has sagged, the cover is lumpy.
- * Its front is +z. */
+ * in (v). A big soft sack that has settled the way they do: its fill spread out low, the back standing up as a
+ * backrest, a hollow pressed into the seat with the cover creased in round it, soft wrinkles where it sags at the
+ * front. Its front is +z. */
 const BAG = new THREE.SplineCurve(
-  [[0, 0], [0.36, 0], [0.5, 0.04], [0.58, 0.15], [0.59, 0.28], [0.53, 0.4], [0.41, 0.48], [0.27, 0.5], [0.13, 0.46], [0, 0.44]].map(([r, y]) => new THREE.Vector2(r, y)),
+  [[0, 0], [0.5, 0], [0.68, 0.05], [0.78, 0.17], [0.79, 0.31], [0.72, 0.45], [0.57, 0.56], [0.38, 0.6], [0.2, 0.55], [0, 0.52]].map(([r, y]) => new THREE.Vector2(r, y)),
 );
+/** where the cover creases, running in toward the hollow: the angle round, and how deep */
+const CREASES = [0.3, 1.25, 2.1, 2.75, 3.6, 4.4, 5.3, 5.95].map((a, i) => ({ a, k: 0.6 + ((i * 37) % 10) / 20 }));
 function bagPoint(u: number, v: number, out: THREE.Vector3) {
-  const p = BAG.getPoint(v), a = u * Math.PI * 2, front = Math.cos(a);
-  // the upper part is what slumps (the floor and the very middle stay put): the back rises into a rounded backrest,
-  // the front sinks a little where you sit down
-  const up = THREE.MathUtils.smoothstep(v, 0.15, 0.55) * (1 - THREE.MathUtils.smoothstep(v, 0.8, 1));
-  const lump = (Math.sin(a * 5 + v * 7) * 0.01 + Math.sin(a * 3 - v * 4 + 1) * 0.014) * Math.min(1, p.x / 0.3);
-  const back = Math.max(0, -front), r = p.x * (1 + 0.06 * back * up) + lump;
-  const y = p.y + up * (0.24 * Math.pow(back, 1.6) - 0.06 * Math.max(0, front)) + lump * up * 0.7;
+  const p = BAG.getPoint(v), a = u * TAU, front = Math.cos(a), back = Math.max(0, -front);
+  const up = smoothstep(v, 0.15, 0.55) * (1 - smoothstep(v, 0.82, 1));
+  // the creases run in over the rim and fade out down the slope into the hollow, which stays smooth
+  const top = smoothstep(v, 0.46, 0.6) * (1 - smoothstep(v, 0.7, 0.82));
+  const fill = Math.min(1, p.x / 0.3);
+  let crease = 0;
+  for (const c of CREASES) {
+    const d = Math.abs((((a - c.a + Math.PI) % TAU) + TAU) % TAU - Math.PI);
+    crease += c.k * Math.exp(-((d / 0.09) ** 2));
+  }
+  const lump = (Math.sin(a * 5 + v * 7) * 0.012 + Math.sin(a * 3 - v * 4 + 1) * 0.016 + Math.sin(a * 11 + v * 13) * 0.004) * fill;
+  const sag = Math.max(0, front) * smoothstep(v, 0.08, 0.3) * (1 - smoothstep(v, 0.45, 0.6)) * Math.sin(v * 70 + a * 2) * 0.006;
+  const r = p.x * (1 + 0.06 * back * up) + lump + sag - crease * 0.02 * top * fill;
+  const y = p.y + up * (0.3 * Math.pow(back, 1.6) - 0.07 * Math.max(0, front)) + lump * up * 0.7 - crease * 0.025 * top;
   return out.set(Math.sin(a) * r, y, Math.cos(a) * r);
 }
 /** the outward normal there, from the surface either side */
@@ -187,18 +199,18 @@ function bagNormal(u: number, v: number, out: THREE.Vector3) {
   const b = bagPoint(u, Math.min(1, v + e), new THREE.Vector3()).sub(bagPoint(u, Math.max(0, v - e), new THREE.Vector3()));
   return out.crossVectors(a, b).normalize();
 }
-/** a knit throw lying in the hollow and spilling over the front, a little away from the cover, in folds */
-function throwOver(u0: number, u1: number, v0: number, v1: number) {
-  const p = new THREE.Vector3(), n = new THREE.Vector3();
-  return new ParametricGeometry((s, t, out) => {
-    const u = u0 + s * (u1 - u0), v = v0 + t * (v1 - v0);
-    bagPoint(u, v, p);
-    bagNormal(u, v, n);
-    const fold = (0.024 * Math.sin(s * Math.PI * 4 + t * 2.5) + 0.01 * Math.sin(s * Math.PI * 11 - t * 4)) * Math.sin(s * Math.PI);
-    const hang = 0.05 * Math.max(0, 1 - t / 0.4);
-    out.copy(p).addScaledVector(n, 0.018 + Math.abs(fold) + hang);
-    out.y = Math.max(0.004, out.y);
-  }, 40, 40);
+/** a chunky knit throw lying in the hollow and falling down the side: close on the seat, in looser, deeper folds as it
+ * hangs, its hem standing off the cover. s runs across it, t from the hem up into the hollow. */
+const THROW = { u0: 0.8, u1: 1.0, v0: 0.04, v1: 0.93 };
+function throwPoint(s: number, t: number, out: THREE.Vector3, p = new THREE.Vector3(), n = new THREE.Vector3()) {
+  const u = THROW.u0 + s * (THROW.u1 - THROW.u0), v = THROW.v0 + t * (THROW.v1 - THROW.v0);
+  bagPoint(u, v, p);
+  bagNormal(u, v, n);
+  const loose = 1 - smoothstep(t, 0.3, 0.75), edge = Math.sqrt(Math.sin(s * Math.PI));
+  const fold = 0.032 * Math.sin(s * 8.5 + Math.sin(t * 2.6) * 1.8) + 0.014 * Math.sin(s * 21 + t * 6 + 1.3) + 0.006 * Math.sin(s * 47 - t * 9);
+  out.copy(p).addScaledVector(n, 0.016 + Math.max(0, fold) * (0.35 + 0.65 * loose) * edge + 0.07 * loose * loose);
+  out.y = Math.max(0.006, out.y);
+  return out;
 }
 /** corduroy: the colour and the bump of one rib, repeated round the bag */
 function corduroy(normal: boolean) {
@@ -210,7 +222,44 @@ function corduroy(normal: boolean) {
         : `rgb(${[239, 233, 222].map((c) => Math.round(c * (0.95 + 0.05 * Math.cos(ph)))).join(",")})`;
       ctx.fillRect(i, 0, 1, h);
     }
-  }, { repeat: [300, 1], color: !normal }).texture;
+  }, { repeat: [380, 1], color: !normal }).texture;
+}
+/** stockinette: rows of little Vs, each leg a soft loop lit on top and shaded below */
+function knit() {
+  return canvasTexture(128, 120, (ctx, w, h) => {
+    ctx.fillStyle = "#cdb99c";
+    ctx.fillRect(0, 0, w, h);
+    const cw = 16, ch = 12;
+    for (let y = 0; y < h; y += ch) {
+      for (let x = 0; x < w; x += cw) {
+        for (const sd of [-1, 1]) {
+          ctx.save();
+          ctx.translate(x + cw / 2 + sd * cw * 0.22, y + ch / 2);
+          ctx.rotate(sd * -0.5);
+          const g = ctx.createLinearGradient(0, -ch / 2, 0, ch / 2);
+          g.addColorStop(0, "rgba(255,248,232,.55)");
+          g.addColorStop(1, "rgba(95,70,40,.35)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, cw * 0.2, ch * 0.62, 0, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+  }, { repeat: [6, 8] }).texture;
+}
+/** one half of an open book: the pages rising from the spine in a soft curve and settling toward the edge */
+function bookHalf() {
+  const s = new THREE.Shape();
+  s.moveTo(0.002, 0);
+  s.lineTo(0.148, 0);
+  s.lineTo(0.148, 0.011);
+  s.quadraticCurveTo(0.07, 0.027, 0.004, 0.013);
+  s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.2, bevelEnabled: false, curveSegments: 10 });
+  g.translate(0, 0.004, -0.1);
+  return g;
 }
 
 export function ReadingCorner() {
@@ -218,36 +267,35 @@ export function ReadingCorner() {
   const k = useRef(0);
   const m = useMemo(() => ({
     cord: new THREE.MeshPhysicalMaterial({ map: corduroy(false), normalMap: corduroy(true), normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.92, sheen: 0.7, sheenColor: new THREE.Color("#ffffff"), sheenRoughness: 0.45 }),
-    // a knit: soft ribs running along the blanket
-    throw: new THREE.MeshPhysicalMaterial({
-      map: canvasTexture(128, 128, (ctx, w, h) => {
-        ctx.fillStyle = "#cbb79a";
-        ctx.fillRect(0, 0, w, h);
-        for (let x = 0; x < w; x += 8) {
-          ctx.fillStyle = "rgba(110,85,55,.22)";
-          ctx.fillRect(x, 0, 2, h);
-          ctx.fillStyle = "rgba(255,246,228,.22)";
-          ctx.fillRect(x + 4, 0, 2, h);
-        }
-      }, { repeat: [5, 2] }).texture,
-      roughness: 1, sheen: 0.5, sheenColor: new THREE.Color("#fff3dc"), side: THREE.DoubleSide,
-    }),
+    throw: new THREE.MeshPhysicalMaterial({ map: knit(), roughness: 1, sheen: 0.6, sheenColor: new THREE.Color("#fff3dc"), side: THREE.DoubleSide }),
+    tassel: new THREE.MeshStandardMaterial({ color: "#c4ae8e", roughness: 1 }),
     cover: new THREE.MeshStandardMaterial({ color: "#2f4a6b", roughness: 0.7 }),
-    pages: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.9 }),
+    pages: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.9, side: THREE.DoubleSide }),
     metal: new THREE.MeshStandardMaterial({ color: "#2b2a28", roughness: 0.4, metalness: 0.7 }),
     shade: new THREE.MeshStandardMaterial({ color: "#efe2c6", emissive: new THREE.Color("#ffcf96"), emissiveIntensity: 0, roughness: 0.9, side: THREE.DoubleSide }),
   }), []);
   const bag = useMemo(() => {
-    const geo = new ParametricGeometry((u, v, out) => bagPoint(u, v, out), 96, 56);
+    const geo = new ParametricGeometry((u, v, out) => bagPoint(u, v, out), 160, 72);
     // where the surface closes to a point (the middle of the base and of the hollow) the triangles have no area and
     // leave a zero normal, which lights as NaN and the bloom spreads it over the screen: point those down and up
     const nrm = geo.getAttribute("normal"), uv = geo.getAttribute("uv");
     for (let i = 0; i < nrm.count; i++) if (Math.hypot(nrm.getX(i), nrm.getY(i), nrm.getZ(i)) < 1e-4) nrm.setXYZ(i, 0, uv.getY(i) < 0.5 ? -1 : 1, 0);
-    // a book left open in the hollow
-    const at = bagPoint(0.1, 0.9, new THREE.Vector3()), n = bagNormal(0.1, 0.9, new THREE.Vector3());
+    // the throw, and a fringe of short tassels along its hem, hanging straight down
+    const throwGeo = new ParametricGeometry((s, t, out) => throwPoint(s, t, out), 72, 64);
+    const fringe = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0026, 0.002, 0.05, 5), m.tassel, 34), o = new THREE.Object3D();
+    for (let i = 0; i < 34; i++) {
+      throwPoint((i + 0.5) / 34, 0, o.position);
+      o.position.y = Math.max(0.03, o.position.y - 0.022);
+      o.rotation.set((((i * 7) % 5) - 2) * 0.05, 0, (((i * 3) % 5) - 2) * 0.05);
+      o.updateMatrix();
+      fringe.setMatrixAt(i, o.matrix);
+    }
+    fringe.castShadow = true;
+    // a book left open on the seat, sunk a little into it
+    const at = bagPoint(0.12, 0.88, new THREE.Vector3()), n = bagNormal(0.12, 0.88, new THREE.Vector3());
     const book = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.5));
-    return { geo, throw: throwOver(0.87, 1.07, 0.1, 0.9), book: { p: at.addScaledVector(n, 0.012), q: book } };
-  }, []);
+    return { geo, throw: throwGeo, fringe, half: bookHalf(), book: { p: at.addScaledVector(n, -0.003), q: book } };
+  }, [m]);
   // a click flops into it: it squashes and springs back
   const flop = useRef(-1), group = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
@@ -265,16 +313,17 @@ export function ReadingCorner() {
   const label = () => (useRoom.getState().floorLamp ? "READING LAMP · SWITCH OFF" : "READING LAMP · SWITCH ON");
   return (
     <group>
-      {/* a giant corduroy beanbag turned toward the windows, a throw spilling over its front, a book left open */}
+      {/* a giant corduroy beanbag turned toward the windows, a throw falling down one side, a book left open */}
       <group position={CORNER} rotation-y={2.45}>
         <group ref={group} {...clickable("BEANBAG · FLOP DOWN", () => { flop.current = 0; })}>
           <mesh geometry={bag.geo} castShadow receiveShadow material={m.cord} />
           <mesh geometry={bag.throw} castShadow receiveShadow material={m.throw} />
+          <primitive object={bag.fringe} />
           <group position={bag.book.p} quaternion={bag.book.q}>
             {[-1, 1].map((sd) => (
-              <group key={sd} rotation-z={sd * 0.12}>
-                <mesh position={[sd * 0.075, 0.004, 0]} castShadow material={m.cover}><primitive object={soft(0.15, 0.006, 0.22, 0.002)} attach="geometry" /></mesh>
-                <mesh position={[sd * 0.072, 0.012, 0]} material={m.pages}><primitive object={soft(0.14, 0.012, 0.21, 0.003)} attach="geometry" /></mesh>
+              <group key={sd} scale-x={sd} rotation-z={sd * 0.05}>
+                <mesh position={[0.076, 0.002, 0]} castShadow material={m.cover}><primitive object={soft(0.152, 0.004, 0.21, 0.0015)} attach="geometry" /></mesh>
+                <mesh geometry={bag.half} castShadow receiveShadow material={m.pages} />
               </group>
             ))}
           </group>

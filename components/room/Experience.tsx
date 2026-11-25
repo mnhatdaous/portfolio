@@ -35,6 +35,7 @@ export default function Experience() {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         const d = e.key === "ArrowRight" ? 1 : -1;
         if (s.page === "home") look.turn(-d * (Math.PI / 6));
+        else if (s.page === "window") look.turn(-d * 0.15);
         else if (s.page === "work") s.selectWork(s.workSel + d);
         else if (s.page === "stack") s.selectStack(s.stackSel < 0 && d < 0 ? 0 : s.stackSel + d);
       }

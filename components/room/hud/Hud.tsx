@@ -274,7 +274,7 @@ export default function Hud() {
         ) : null}
         <span className="spacer" />
         {page === "home" && <span className="hint frost">Drag or scroll to look around · open the computer, board, shelf or phone · pet the cat</span>}
-        {page === "window" && <span className="hint frost">Drag to look around · click or Esc to come back</span>}
+        {page === "window" && <span className="hint frost">Drag or scroll to look around · click or Esc to come back</span>}
         {page === "calendar" && <span className="hint frost">Click the calendar for the next month · click outside or Esc to come back</span>}
         <span className="spacer" />
         <Music />
