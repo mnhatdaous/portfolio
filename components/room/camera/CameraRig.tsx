@@ -156,6 +156,9 @@ export default function CameraRig() {
   const fovRef = useRef(lensFov(size.width / size.height));
   const wideRef = useRef(wideFov(size.width / size.height));
   const curFov = useRef(wideRef.current);
+  // the lens zoom as shown, easing toward the store's; and how fast a drag turns things before the zoom slows it
+  const zoomCur = useRef(1);
+  const baseRotate = useRef(0.45);
   const turn = useRef(0);
   const sizeRef = useRef(size);
   sizeRef.current = size;
@@ -166,10 +169,12 @@ export default function CameraRig() {
   const loose = () => Object.assign(controls, { minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, minPolarAngle: 0.1, maxPolarAngle: Math.PI - 0.1, minDistance: 0.05, maxDistance: 50 });
   const settle = (page: Page, f: Frame) => {
     const l = limitsFor(page, f);
+    baseRotate.current = page === "home" ? -0.32 : 0.45;
     Object.assign(controls, {
       minAzimuthAngle: l.minAz, maxAzimuthAngle: l.maxAz, minPolarAngle: l.minPol, maxPolarAngle: l.maxPol, minDistance: l.minDist, maxDistance: l.maxDist,
-      // at home a drag grabs the room and pulls it round, like a panorama; elsewhere it orbits the object
-      rotateSpeed: page === "home" ? -0.32 : 0.45,
+      // at home a drag grabs the room and pulls it round, like a panorama; elsewhere it orbits the object (the frame loop
+      // slows it while zoomed in)
+      rotateSpeed: baseRotate.current,
       enableZoom: page !== "home",
     });
   };
@@ -253,10 +258,77 @@ export default function CameraRig() {
       e.preventDefault();
       dropHover();
       const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      turn.current -= d * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1) * 0.0022;
+      turn.current -= (d * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1) * 0.0022) / zoomCur.current;
     };
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
+  }, [gl]);
+
+  // zoom: a trackpad pinch (browsers send it as ctrl + scroll), ctrl/⌘ + scroll, Safari's pinch gestures, and a
+  // two-finger pinch on a touch screen at home (elsewhere the orbit controls' own pinch moves the camera in and out).
+  // The + and − keys and the HUD's buttons zoom too.
+  useEffect(() => {
+    const el = gl.domElement, box = el.parentElement ?? el;
+    const can = () => useRoom.getState().entered && !fly.current;
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      // over the room it's our zoom: not the browser's page zoom, nor the controls' dolly or the turn at home
+      e.preventDefault();
+      e.stopPropagation();
+      if (!can()) return;
+      const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+      useRoom.getState().zoomBy(Math.exp(-THREE.MathUtils.clamp(d, -30, 30) * 0.008));
+    };
+    let pinched = 1;
+    const gestureStart = (e: Event) => {
+      e.preventDefault();
+      pinched = 1;
+    };
+    const gestureChange = (e: Event) => {
+      e.preventDefault();
+      const scale = (e as Event & { scale: number }).scale;
+      if (can() && scale > 0) useRoom.getState().zoomBy(scale / pinched);
+      pinched = scale;
+    };
+    const touches = new Map<number, { x: number; y: number }>();
+    let spread = 0;
+    const apart = () => {
+      const [a, b] = [...touches.values()];
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      spread = touches.size === 2 ? apart() : 0;
+    };
+    const move = (e: PointerEvent) => {
+      if (!touches.has(e.pointerId)) return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size !== 2 || useRoom.getState().page !== "home" || !can()) return;
+      const d = apart();
+      if (spread > 0 && d > 0) useRoom.getState().zoomBy(d / spread);
+      spread = d;
+    };
+    const up = (e: PointerEvent) => {
+      touches.delete(e.pointerId);
+      spread = touches.size === 2 ? apart() : 0;
+    };
+    box.addEventListener("wheel", wheel, { capture: true, passive: false });
+    box.addEventListener("gesturestart", gestureStart);
+    box.addEventListener("gesturechange", gestureChange);
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    return () => {
+      box.removeEventListener("wheel", wheel, { capture: true });
+      box.removeEventListener("gesturestart", gestureStart);
+      box.removeEventListener("gesturechange", gestureChange);
+      el.removeEventListener("pointerdown", down);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+    };
   }, [gl]);
 
   // a resize re-frames the page in one step
@@ -344,7 +416,12 @@ export default function CameraRig() {
     // the lens widens at home and at the window, and narrows again on the way to a station
     const want = page === "home" || page === "window" ? wideRef.current : fovRef.current;
     curFov.current = reduce ? want : curFov.current + (want - curFov.current) * Math.min(1, dt * 2.4);
-    view.fov = curFov.current;
+    // the zoom narrows (or widens) the same lens, and slows a drag to match so the room still turns under the pointer
+    const zoom = useRoom.getState().zoom;
+    zoomCur.current = reduce || Math.abs(zoom - zoomCur.current) < 1e-3 ? zoom : zoomCur.current + (zoom - zoomCur.current) * Math.min(1, dt * 9);
+    controls.rotateSpeed = baseRotate.current / zoomCur.current;
+    const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(curFov.current) / 2) / zoomCur.current);
+    view.fov = Math.min(100, THREE.MathUtils.radToDeg(2 * half));
     view.updateProjectionMatrix();
   });
 

@@ -97,6 +97,7 @@ which reads as far away.
 
 `1`–`4` sections · `Esc`, or a click anywhere outside the thing you're looking at, back to the room ·
 `←` `→` turn round in the room, look along the view from the window, or flip through notes, books and the calendar's year ahead ·
+`+` `−` zoom in and out (or pinch, ctrl/⌘ + scroll, or the − + buttons in the bottom bar), `0` back to 1× ·
 `/#about` `/#work` `/#stack` `/#online` open a section, `/#calendar` the calendar close-up · `?lofi=1` plain page (remembered) · `?room=1` the 3D room.
 
 Without WebGL 2, or with a software renderer, visitors get the plain page with a link into the room.

@@ -923,8 +923,9 @@ export function Calendar() {
       <mesh position={[0, 0, Z.face]} receiveShadow material={m.face}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
       <mesh geometry={wire} castShadow material={m.wire} />
       <group ref={page} position={[0, PIVOT, Z.flip]} visible={false}>
-        <mesh position={[0, -PIVOT, 0]} material={m.flip}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
-        <mesh position={[0, -PIVOT, 0]} material={m.back}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
+        {/* in the room's shadows like the page under it, or it would catch sun the wall never gets */}
+        <mesh position={[0, -PIVOT, 0]} castShadow receiveShadow material={m.flip}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
+        <mesh position={[0, -PIVOT, 0]} castShadow receiveShadow material={m.back}><planeGeometry args={[PAGE.w, PAGE.h]} /></mesh>
       </group>
     </group>
   );

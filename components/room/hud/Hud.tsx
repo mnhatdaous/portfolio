@@ -6,6 +6,7 @@ import { sound } from "../lib/audio";
 import { music } from "../lib/music";
 import { layout, MENU, narrow, useRoom, type Page } from "../store";
 import Music from "./Music";
+import Zoom, { ZoomHint } from "./Zoom";
 
 const saigonTime = () => new Intl.DateTimeFormat("en-GB", { timeZone: profile.timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
 
@@ -273,10 +274,11 @@ export default function Hud() {
           <button className="pill frost" onClick={() => go("home")}>← <span className="lbl">Back to the room · Esc</span></button>
         ) : null}
         <span className="spacer" />
-        {page === "home" && <span className="hint frost">Drag or scroll to look around · open the computer, board, shelf or phone · pet the cat</span>}
-        {page === "window" && <span className="hint frost">Drag or scroll to look around · click or Esc to come back</span>}
+        {page === "home" && <span className="hint frost">Drag or scroll to look around<ZoomHint /> · open the computer, board, shelf or phone · pet the cat</span>}
+        {page === "window" && <span className="hint frost">Drag or scroll to look around<ZoomHint /> · click or Esc to come back</span>}
         {page === "calendar" && <span className="hint frost">Click the calendar for the next month · click outside or Esc to come back</span>}
         <span className="spacer" />
+        <Zoom />
         <Music />
         <button className="pill frost" aria-pressed={on} onClick={toggleSound} aria-label={on ? "Sound on" : "Sound off"}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

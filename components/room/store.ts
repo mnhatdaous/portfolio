@@ -10,6 +10,12 @@ export const MENU: { page: Exclude<Page, "home" | "window">; label: string; key:
   { page: "online", label: "Online", key: "4" },
 ];
 const PAGES: Page[] = ["home", "about", "work", "stack", "online", "window", "calendar"];
+/** the lens zoom: 1 frames each view as it was made to be seen; up to 3 looks closer, down to 0.8 a little wider */
+export const ZOOM = { min: 0.8, max: 3 };
+const clampZoom = (z: number) => {
+  const c = Math.min(ZOOM.max, Math.max(ZOOM.min, z));
+  return Math.abs(c - 1) < 0.01 ? 1 : c;
+};
 
 export function pageFromHash(hash = typeof location !== "undefined" ? location.hash : ""): Page {
   const h = hash.replace(/^#/, "") as Page;
@@ -31,6 +37,8 @@ type RoomState = {
   floorLamp: boolean;
   /** cards are hidden while the camera flies to their station */
   flying: boolean;
+  /** the lens zoom (see ZOOM); every page starts at 1 */
+  zoom: number;
   go: (page: Page, opts?: { replace?: boolean; fromHistory?: boolean }) => void;
   setHover: (label: string | null) => void;
   enter: () => void;
@@ -41,6 +49,8 @@ type RoomState = {
   toggleLamp: () => void;
   toggleFloorLamp: () => void;
   setFlying: (v: boolean) => void;
+  zoomBy: (f: number) => void;
+  setZoom: (z: number) => void;
 };
 
 export const useRoom = create<RoomState>((set, get) => ({
@@ -54,10 +64,11 @@ export const useRoom = create<RoomState>((set, get) => ({
   lamp: false,
   floorLamp: false,
   flying: false,
+  zoom: 1,
   go: (page, opts = {}) => {
     if (get().page === page) return;
     // the camera is about to move out from under the pointer: drop the hover label until it moves again
-    set({ page, hover: null });
+    set({ page, hover: null, zoom: 1 });
     if (typeof document !== "undefined") document.body.style.cursor = "";
     if (!opts.fromHistory) {
       const url = page === "home" ? location.pathname + location.search : `#${page}`;
@@ -77,6 +88,8 @@ export const useRoom = create<RoomState>((set, get) => ({
   toggleLamp: () => set((s) => ({ lamp: !s.lamp })),
   toggleFloorLamp: () => set((s) => ({ floorLamp: !s.floorLamp })),
   setFlying: (flying) => set({ flying }),
+  zoomBy: (f) => set((s) => ({ zoom: clampZoom(s.zoom * f) })),
+  setZoom: (z) => set({ zoom: clampZoom(z) }),
 }));
 
 // for poking at the room from the console while developing

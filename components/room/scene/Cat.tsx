@@ -7,11 +7,12 @@ import { clickable } from "../lib/interact";
 import { canvasTexture, FONT } from "../lib/textures";
 import { DESK_Y } from "./Desk";
 
-// A black cat asleep on the desk, in the sun. A pat wakes it: the head comes up, the eyes open, it purrs and the tail
-// flicks; keep petting and it keeps purring, with a meow now and then. Left alone, it curls back up.
+// A black cat asleep on the desk, in the sun. A pat wakes it for a moment: the head comes up, the eyes open, it purrs
+// briefly and the tail flicks, then it curls back up. Each pat gets the same, with a meow now and then.
 // Local coordinates: the head toward +x, the tail wrapped round the front (+z), y up from the desk.
 
-const AWAKE_FOR = 7;
+/** how long a pat keeps it up: long enough to lift its head, purr a little and settle again, not to purr on and on */
+const AWAKE_FOR = 3.5;
 const TAIL_SEG = 30, TAIL_RAD = 10;
 const HEAD = new THREE.Vector3(0.135, 0.085, 0.07);
 

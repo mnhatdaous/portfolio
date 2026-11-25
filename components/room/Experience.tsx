@@ -30,6 +30,10 @@ export default function Experience() {
         return;
       }
       if (e.key === "Escape") return s.go("home");
+      // zoom in, out, and back to 1 (pinch and ctrl/⌘ + scroll zoom too)
+      if (e.key === "+" || e.key === "=") return s.zoomBy(1.25);
+      if (e.key === "-" || e.key === "_") return s.zoomBy(0.8);
+      if (e.key === "0") return s.setZoom(1);
       const m = MENU.find((x) => x.key === e.key);
       if (m) return s.go(m.page);
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {

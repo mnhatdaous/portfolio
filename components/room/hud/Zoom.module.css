@@ -1,0 +1,20 @@
+/* the zoom's − and + in the bottom bar: one frosted pill split in two, the level between them while zoomed */
+.zoom { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; }
+.zoom button {
+  font-family: var(--mono); font-size: 16px; line-height: 1; color: var(--ink); background: none; border: 0;
+  padding: 6px 13px; cursor: pointer;
+}
+.zoom button + button { border-left: 1px solid var(--line); }
+.zoom button:hover:not(:disabled) { color: var(--accent); }
+.zoom button:disabled { opacity: 0.35; cursor: default; }
+.zoom button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.zoom .level { font-size: 11.5px; letter-spacing: 0.06em; padding: 6px 9px; }
+
+/* the hint's "pinch to zoom": only where the bottom bar has room for it on one line */
+.hint { display: none; }
+@media (min-width: 1360px) { .hint { display: inline; } }
+
+@media (max-width: 760px) {
+  .zoom button { padding: 6px 11px; font-size: 15px; }
+  .zoom .level { padding: 6px 7px; font-size: 11px; }
+}
