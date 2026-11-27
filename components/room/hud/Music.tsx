@@ -1,9 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { song } from "@/content/profile";
-import { sound } from "../lib/audio";
-import { music } from "../lib/music";
-import { useRoom } from "../store";
+import { music, toggleMusic } from "../lib/music";
 import s from "./Music.module.css";
 
 const Note = () => (
@@ -24,19 +22,9 @@ export default function Music() {
   const playing = useSyncExternalStore(music.subscribe, music.playing, () => false);
   const name = song.artist ? `${song.title} · ${song.artist}` : song.title;
 
-  const toggle = () => {
-    if (music.playing()) return music.pause();
-    const st = useRoom.getState();
-    if (!st.sound) {
-      st.setSound(true);
-      sound.start(true);
-    }
-    music.play();
-  };
-
   return (
     <>
-      <button className="pill frost" aria-pressed={playing} onClick={toggle} aria-label={`Music: ${name}`} title={playing ? "Pause the music" : "Play the music"}>
+      <button className="pill frost" aria-pressed={playing} onClick={toggleMusic} aria-label={`Music: ${name}`} title={playing ? "Pause the music" : "Play the music"}>
         {playing ? <Bars /> : <Note />}
         <span className="lbl">{name}</span>
       </button>

@@ -177,9 +177,6 @@ export default function Computer() {
       glass: new THREE.MeshStandardMaterial({ color: "#0b0c0f", roughness: 0.12 }),
       mouse: new THREE.MeshStandardMaterial({ color: "#2e3035", roughness: 0.35, metalness: 0.3 }),
       mat: new THREE.MeshPhysicalMaterial({ color: "#7a4528", roughness: 0.55, clearcoat: 0.25, clearcoatRoughness: 0.5 }),
-      speaker: new THREE.MeshStandardMaterial({ color: "#2b2d31", roughness: 0.55, metalness: 0.2 }),
-      cone: new THREE.MeshStandardMaterial({ color: "#4a4d53", roughness: 0.7 }),
-      ring: new THREE.MeshStandardMaterial({ color: "#a9adb4", roughness: 0.25, metalness: 0.9 }),
       screen: scr,
     };
   }, [screen]);
@@ -187,7 +184,6 @@ export default function Computer() {
     body: new RoundedBoxGeometry(0.8, 0.51, 0.026, 3, 0.012),
     keyboard: new RoundedBoxGeometry(0.36, 0.028, 0.125, 3, 0.009),
     mat: new RoundedBoxGeometry(0.9, 0.004, 0.36, 2, 0.0019),
-    speaker: new RoundedBoxGeometry(0.1, 0.16, 0.12, 3, 0.012),
   }), []);
 
   const st = useRef({ mode: "", key: "", openedAt: 0, ready: false });
@@ -232,15 +228,6 @@ export default function Computer() {
         <mesh position={[-0.05, DESK_Y + 0.0325, -1.79]} rotation-x={-Math.PI / 2 + 0.04} material={m.keys}><planeGeometry args={[0.35, 0.117]} /></mesh>
         <mesh position={[0.27, DESK_Y + 0.016, -1.79]} scale={[0.034, 0.018, 0.06]} castShadow material={m.mouse}><sphereGeometry args={[1, 24, 14]} /></mesh>
       </group>
-      {/* a pair of desk speakers either side, turned in a little */}
-      {[-1, 1].map((sx) => (
-        <group key={sx} position={[sx * 0.48, DESK_Y, -2.2]} rotation-y={-sx * 0.2}>
-          <mesh geometry={geo.speaker} position={[0, 0.08, 0]} castShadow receiveShadow material={m.speaker} />
-          <mesh position={[0, 0.06, 0.0605]} rotation-x={Math.PI / 2} material={m.ring}><cylinderGeometry args={[0.034, 0.034, 0.004, 28]} /></mesh>
-          <mesh position={[0, 0.06, 0.063]} rotation-x={Math.PI / 2} material={m.cone}><cylinderGeometry args={[0.028, 0.02, 0.004, 28]} /></mesh>
-          <mesh position={[0, 0.125, 0.0605]} rotation-x={Math.PI / 2} material={m.ring}><cylinderGeometry args={[0.013, 0.013, 0.004, 20]} /></mesh>
-        </group>
-      ))}
     </group>
   );
 }

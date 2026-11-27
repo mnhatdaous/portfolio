@@ -32,8 +32,9 @@ type RoomState = {
   hover: string | null;
   workSel: number;
   stackSel: number;
-  /** the pendant over the desk, and the reading lamp: both off in the daytime */
+  /** the pendant over the desk, the lamp on it, and the reading lamp: all off in the daytime */
   lamp: boolean;
+  deskLamp: boolean;
   floorLamp: boolean;
   /** cards are hidden while the camera flies to their station */
   flying: boolean;
@@ -47,6 +48,7 @@ type RoomState = {
   selectWork: (i: number) => void;
   selectStack: (i: number) => void;
   toggleLamp: () => void;
+  toggleDeskLamp: () => void;
   toggleFloorLamp: () => void;
   setFlying: (v: boolean) => void;
   zoomBy: (f: number) => void;
@@ -62,6 +64,7 @@ export const useRoom = create<RoomState>((set, get) => ({
   workSel: 0,
   stackSel: -1,
   lamp: false,
+  deskLamp: false,
   floorLamp: false,
   flying: false,
   zoom: 1,
@@ -86,6 +89,7 @@ export const useRoom = create<RoomState>((set, get) => ({
   selectWork: (i) => set({ workSel: (i + jobs.length) % jobs.length }),
   selectStack: (i) => set({ stackSel: (i + allSkills.length) % allSkills.length }),
   toggleLamp: () => set((s) => ({ lamp: !s.lamp })),
+  toggleDeskLamp: () => set((s) => ({ deskLamp: !s.deskLamp })),
   toggleFloorLamp: () => set((s) => ({ floorLamp: !s.floorLamp })),
   setFlying: (flying) => set({ flying }),
   zoomBy: (f) => set((s) => ({ zoom: clampZoom(s.zoom * f) })),

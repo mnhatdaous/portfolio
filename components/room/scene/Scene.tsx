@@ -18,6 +18,8 @@ import Phone from "./Phone";
 import { FiddleLeafFig, Monstera, OliveTree, RubberPlant } from "./Plants";
 import { Calendar } from "./Calendar";
 import { DeskClock, DustMotes, Mug, PendantLamp, ReadingCorner } from "./Props";
+import { DeskLamp } from "./DeskLamp";
+import { Headphones } from "./Headphones";
 import { Guitar, Paintings } from "./Art";
 import Room, { GLASS_Z, ROOF, ROOF_Z, ROOM } from "./Room";
 
@@ -71,11 +73,11 @@ function Daylight() {
     const isDark = SKY.sunSin < (dark.current ? 0.06 : 0);
     if (isDark !== dark.current) {
       dark.current = isDark;
-      useRoom.setState({ lamp: isDark, floorLamp: isDark });
+      useRoom.setState({ lamp: isDark, deskLamp: isDark, floorLamp: isDark });
     }
     // at night the lamps' light carries round the room, off the walls and the ceiling
     const st = useRoom.getState();
-    if (bounce.current) bounce.current.intensity = SKY.night * ((st.lamp ? 1.5 : 0) + (st.floorLamp ? 0.8 : 0));
+    if (bounce.current) bounce.current.intensity = SKY.night * ((st.lamp ? 1.5 : 0) + (st.deskLamp ? 0.35 : 0) + (st.floorLamp ? 0.8 : 0));
   });
   return (
     <>
@@ -119,6 +121,8 @@ export default function Scene() {
       <Mug />
       <DeskClock />
       <PendantLamp />
+      <DeskLamp />
+      <Headphones />
       <Monstera />
       <RubberPlant />
       <OliveTree />

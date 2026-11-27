@@ -1,7 +1,10 @@
 // The room's music: an hour-long chill mix served with the site, looping. It comes on with the room's other sounds when
-// the visitor clicks ENTER with sound on; the button in the bottom bar pauses and resumes it, and the room's sound switch
-// silences it along with everything else. Browsers only let a page start sound from a click, so every call that can
-// start it comes straight from one.
+// the visitor clicks ENTER with sound on; the button in the bottom bar and the headphones on the desk pause and resume
+// it, and the room's sound switch silences it along with everything else. Browsers only let a page start sound from a
+// click, so every call that can start it comes straight from one.
+
+import { useRoom } from "../store";
+import { sound } from "./audio";
 
 /** the file is already levelled for the background (about -19 LUFS), so it plays at full volume */
 const VOLUME = 1;
@@ -76,6 +79,18 @@ class Music {
 }
 
 export const music = new Music();
+
+/** play or pause, from the bottom bar's button or the headphones on the desk; asking for music is asking for sound, so
+ * it turns the room's sound on too */
+export function toggleMusic() {
+  if (music.playing()) return music.pause();
+  const st = useRoom.getState();
+  if (!st.sound) {
+    st.setSound(true);
+    sound.start(true);
+  }
+  music.play();
+}
 
 // for poking at the music from the console while developing
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") (window as unknown as Record<string, unknown>).__music = music;

@@ -177,7 +177,7 @@ export default function Desk() {
         ))}
       </group>
 
-      <Books seed={3} x={-1.27} z={-2.06} n={5} rot={0.2} />
+      <Books seed={3} x={-0.99} z={-1.8} n={5} rot={0.2} />
       <Books seed={9} x={1.04} z={-2.07} n={3} rot={-0.3}>{(top) => <group position={[0, top, 0]}><Glasses /></group>}</Books>
       <Books seed={17} x={1.3} z={-1.82} n={2} rot={0.6} />
       <Notebook />
